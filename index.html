@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RankPilot — simple AI-ready SEO auditing for websites.">
+  <title>RankPilot — SEO Audit</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#"><span class="brand-mark">R</span> RankPilot</a>
+  <nav>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <a class="nav-btn" href="#analyzer">Analyze website</a>
+</header>
+
+<main>
+<section class="hero">
+  <div class="badge">⚡ SEO audit in seconds</div>
+  <h1>Find what's holding<br><span>your website back.</span></h1>
+  <p>Analyze your website's SEO, discover problems and get actionable recommendations in seconds.</p>
+  <form id="auditForm" class="url-form">
+    <input id="urlInput" type="text" placeholder="https://yourwebsite.com" autocomplete="url">
+    <button type="submit">Analyze Website →</button>
+  </form>
+  <small>No credit card required · Free audit available</small>
+</section>
+
+<section id="analyzer" class="preview-wrap">
+  <div class="browser">
+    <div class="browser-top"><span></span><span></span><span></span><b>rankpilot.app/audit</b></div>
+    <div class="dashboard-preview">
+      <aside>
+        <strong>RankPilot</strong>
+        <div class="side active">Overview</div><div class="side">My websites</div><div class="side">Audits</div><div class="side">Monitoring</div><div class="side">Reports</div>
+      </aside>
+      <div class="dash">
+        <div class="dash-head"><div><p>Website audit</p><h3>example.com</h3></div><span class="pill">Just now</span></div>
+        <div class="score-row">
+          <div class="score"><strong>73</strong><span>/100</span><small>SEO SCORE</small></div>
+          <div class="mini-grid">
+            <div><span>Technical SEO</span><b>82</b></div><div><span>On-page SEO</span><b>68</b></div>
+            <div><span>Performance</span><b>76</b></div><div><span>Content</span><b>71</b></div>
+          </div>
+        </div>
+        <div class="issues"><h4>17 opportunities found</h4><div class="issue"><i class="red"></i><span>Missing meta description</span><b>CRITICAL</b></div><div class="issue"><i class="orange"></i><span>7 images missing ALT attributes</span><b>HIGH</b></div><div class="issue"><i class="yellow"></i><span>H1 could be more descriptive</span><b>MEDIUM</b></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <div class="eyebrow">WHAT YOU GET</div>
+  <h2>Everything you need to understand your SEO.</h2>
+  <div class="cards">
+    <article><div class="icon">⌁</div><h3>Technical SEO</h3><p>Check indexing signals, HTTPS, canonicals, robots.txt, sitemaps and more.</p></article>
+    <article><div class="icon">A</div><h3>On-page SEO</h3><p>Find weak titles, descriptions, headings, images and internal linking opportunities.</p></article>
+    <article><div class="icon">✦</div><h3>AI recommendations</h3><p>Turn technical findings into clear, practical fixes your team can implement.</p></article>
+    <article><div class="icon">↗</div><h3>SEO monitoring</h3><p>Track your score and issues over time instead of running one-off audits.</p></article>
+  </div>
+</section>
+
+<section class="how section">
+  <div><div class="eyebrow">HOW IT WORKS</div><h2>From URL to action plan.</h2></div>
+  <div class="steps">
+    <div><b>01</b><h3>Enter your URL</h3><p>Tell RankPilot which website you want to inspect.</p></div>
+    <div><b>02</b><h3>Run the audit</h3><p>We organize technical and on-page checks into one report.</p></div>
+    <div><b>03</b><h3>Fix what matters</h3><p>See the issue, why it matters and what to change.</p></div>
+  </div>
+</section>
+
+<section id="pricing" class="section pricing">
+  <div class="eyebrow">PRICING</div><h2>Start free. Upgrade when you need more.</h2>
+  <div class="price-grid">
+    <article class="price"><h3>Free</h3><div class="amount">€0 <span>/month</span></div><p>For trying the audit.</p><ul><li>1 website</li><li>Basic SEO audit</li><li>SEO score</li><li>5 visible issues</li></ul><a href="#analyzer">Start free</a></article>
+    <article class="price featured"><div class="popular">POPULAR</div><h3>Starter</h3><div class="amount">€9.90 <span>/month</span></div><p>For website owners.</p><ul><li>3 websites</li><li>Unlimited audits</li><li>Full SEO audit</li><li>AI recommendations</li><li>Monitoring & reports</li></ul><a href="#analyzer">Choose Starter</a></article>
+    <article class="price"><h3>Business</h3><div class="amount">€29.90 <span>/month</span></div><p>For growing teams.</p><ul><li>10 websites</li><li>Keyword tracking</li><li>Competitor analysis</li><li>Automated reports</li></ul><a href="#analyzer">Choose Business</a></article>
+  </div>
+</section>
+
+<section id="faq" class="section faq">
+  <div class="eyebrow">FAQ</div><h2>Questions, answered.</h2>
+  <details><summary>Can I use RankPilot for free?</summary><p>Yes. The prototype includes a free audit flow. Paid plans are designed for deeper audits and monitoring.</p></details>
+  <details><summary>Does a good score guarantee Google rankings?</summary><p>No. SEO tools can identify technical and content opportunities, but no tool can guarantee a specific Google ranking.</p></details>
+  <details><summary>Can it analyze real websites?</summary><p>This first version is a zero-cost prototype. The next phase can connect a secure crawler and services such as PageSpeed Insights and Search Console.</p></details>
+</section>
+</main>
+
+<footer><div class="brand"><span class="brand-mark">R</span> RankPilot</div><p>Find SEO problems. Fix them. Grow your website.</p></footer>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <button id="closeModal" class="close">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
