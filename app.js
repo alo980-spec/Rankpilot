@@ -1,29 +1,35 @@
-const form = document.getElementById("auditForm");
-const input = document.getElementById("urlInput");
-const modal = document.getElementById("modal");
-const content = document.getElementById("modalContent");
-const close = document.getElementById("closeModal");
+const seoForm = document.getElementById("seoForm");
+const urlInput = document.getElementById("urlInput");
+const analyzerMessage = document.getElementById("analyzerMessage");
 
-function normalizeUrl(value){
-  let url = value.trim();
-  if(!url) return null;
-  if(!/^https?:\/\//i.test(url)) url = "https://" + url;
-  try { return new URL(url); } catch { return null; }
-}
+seoForm.addEventListener("submit", function (event) {
+  event.preventDefault();
 
-form.addEventListener("submit", (e)=>{
-  e.preventDefault();
-  const url = normalizeUrl(input.value);
-  if(!url){
-    input.focus();
-    input.style.outline = "2px solid #e24a4a";
-    setTimeout(()=>input.style.outline="",1200);
+  let url = urlInput.value.trim();
+
+  if (!url) {
+    analyzerMessage.textContent = "Introduce una URL para comenzar el análisis.";
+    analyzerMessage.style.color = "#ff6b6b";
     return;
   }
-  modal.classList.remove("hidden");
-  content.innerHTML = `<div class="analysis">
-    <div class="loader"></div>
-    <h2>Analyzing ${url.hostname}</h2>
+
+  // Añadir https:// si el usuario no lo escribe
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = "https://" + url;
+  }
+
+  analyzerMessage.style.color = "#98a2b3";
+  analyzerMessage.textContent = "Analizando tu web...";
+
+  // Simulación del análisis inicial
+  setTimeout(() => {
+    analyzerMessage.style.color = "#6d5dfc";
+    analyzerMessage.innerHTML = `
+      <strong>Análisis completado.</strong><br>
+      RankPilot ha preparado una primera auditoría de ${url}.
+    `;
+  }, 1800);
+});
     <p id="step">Crawling website...</p>
   </div>`;
   const steps = ["Crawling website...","Checking technical SEO...","Analyzing metadata...","Checking headings...","Analyzing images...","Checking internal links..."];
