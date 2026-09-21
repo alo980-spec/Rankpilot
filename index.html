@@ -1,168 +1,967 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="RankPilot — simple AI-ready SEO auditing for websites.">
-  <title>RankPilot — SEO Audit</title>
-  <style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#10131a;background:#f8f9fb}a{text-decoration:none;color:inherit}.nav{height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 6%;border-bottom:1px solid #e7e9ee;background:rgba(248,249,251,.9);position:sticky;top:0;z-index:10;backdrop-filter:blur(14px)}.brand{font-weight:800;font-size:20px;display:flex;align-items:center;gap:9px}.brand-mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#111827;color:#fff;font-size:15px}.nav nav{display:flex;gap:30px;color:#656b78;font-size:14px}.nav-btn,.url-form button{background:#111827;color:white;border:0;border-radius:11px;padding:12px 17px;font-weight:700;cursor:pointer}.hero{text-align:center;max-width:900px;margin:0 auto;padding:100px 20px 75px}.badge,.eyebrow{font-size:12px;font-weight:800;letter-spacing:.13em;color:#586173}.badge{display:inline-block;border:1px solid #dfe3e9;background:#fff;border-radius:999px;padding:8px 13px;letter-spacing:.02em;text-transform:none}.hero h1{font-size:clamp(46px,7vw,78px);line-height:1.01;letter-spacing:-.055em;margin:22px 0}.hero h1 span{color:#697386}.hero p{max-width:650px;margin:0 auto 30px;color:#646b79;font-size:18px;line-height:1.65}.url-form{display:flex;max-width:670px;margin:0 auto 12px;padding:6px;background:#fff;border:1px solid #dfe3e9;border-radius:15px;box-shadow:0 15px 45px rgba(20,25,35,.08)}.url-form input{min-width:0;flex:1;border:0;outline:0;padding:13px 15px;font-size:16px}.hero small{color:#8a919e}.preview-wrap{padding:10px 6% 100px}.browser{max-width:1050px;margin:auto;border:1px solid #dfe3e9;border-radius:20px;background:#fff;box-shadow:0 25px 80px rgba(15,23,42,.12);overflow:hidden}.browser-top{height:48px;background:#f0f2f5;display:flex;align-items:center;gap:7px;padding:0 18px;color:#8b92a0;font-size:12px}.browser-top span{width:9px;height:9px;background:#c5cad3;border-radius:50%}.browser-top b{margin:auto;font-weight:500}.dashboard-preview{display:flex;min-height:430px}.dashboard-preview aside{width:190px;background:#11151d;color:#aab1bd;padding:24px 16px}.dashboard-preview aside strong{color:#fff;display:block;margin-bottom:30px}.side{padding:11px 10px;border-radius:8px;font-size:12px;margin:3px 0}.side.active{background:#262d39;color:#fff}.dash{flex:1;padding:30px;background:#fbfcfd}.dash-head{display:flex;justify-content:space-between;align-items:center}.dash-head p{font-size:12px;color:#89919e;margin:0 0 3px}.dash-head h3{margin:0;font-size:20px}.pill{font-size:11px;border:1px solid #e2e5ea;padding:7px 10px;border-radius:99px;color:#687180;background:#fff}.score-row{display:flex;gap:35px;align-items:center;margin:30px 0}.score{width:150px;height:150px;border-radius:50%;border:13px solid #dce3ec;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#fff}.score strong{font-size:45px;line-height:1}.score span{font-size:12px;color:#89919e}.score small{font-size:8px;letter-spacing:.1em;margin-top:7px;color:#89919e}.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1}.mini-grid div{background:#fff;border:1px solid #e5e8ed;padding:15px;border-radius:10px;display:flex;justify-content:space-between}.mini-grid span{font-size:11px;color:#707887}.mini-grid b{font-size:13px}.issues{background:#fff;border:1px solid #e5e8ed;border-radius:12px;padding:18px}.issues h4{margin:0 0 12px}.issue{display:flex;align-items:center;gap:10px;border-top:1px solid #eef0f3;padding:12px 0;font-size:12px}.issue i{width:8px;height:8px;border-radius:50%}.red{background:#e24a4a}.orange{background:#e68b38}.yellow{background:#d8b334}.issue b{margin-left:auto;font-size:9px;color:#858c98}.section{max-width:1100px;margin:auto;padding:100px 25px}.section h2{font-size:clamp(34px,5vw,50px);letter-spacing:-.04em;margin:12px 0 40px;max-width:700px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.cards article{background:#fff;border:1px solid #e3e6eb;border-radius:15px;padding:24px;min-height:220px}.icon{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:#eef1f5;font-weight:800;margin-bottom:30px}.cards h3,.steps h3{margin:0 0 10px;font-size:17px}.cards p,.steps p{color:#707887;line-height:1.6;font-size:14px}.how{display:grid;grid-template-columns:1fr 1.5fr;gap:70px;border-top:1px solid #e5e8ed;border-bottom:1px solid #e5e8ed}.steps{display:grid;gap:25px}.steps div{border-bottom:1px solid #e6e8ed;padding-bottom:20px}.steps b{color:#8a919d;font-size:12px}.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.price{position:relative;background:#fff;border:1px solid #e0e4ea;border-radius:17px;padding:30px}.price.featured{border:2px solid #171c25}.popular{position:absolute;right:18px;top:18px;font-size:9px;font-weight:800;background:#111827;color:#fff;border-radius:99px;padding:6px 8px}.amount{font-size:36px;font-weight:800;margin:18px 0 8px}.amount span{font-size:13px;color:#7c8491;font-weight:500}.price p{color:#7c8491}.price ul{list-style:none;padding:10px 0 20px;margin:0;line-height:2.2;color:#5d6572;font-size:14px}.price li:before{content:"✓";margin-right:9px;color:#111827;font-weight:800}.price a{display:block;text-align:center;border:1px solid #dce1e7;padding:11px;border-radius:10px;font-weight:700}.featured a{background:#111827;color:#fff}.faq details{border-top:1px solid #dfe3e9;padding:20px 0}.faq summary{font-weight:700;cursor:pointer}.faq details p{color:#6f7785;max-width:700px;line-height:1.6}footer{padding:50px 6%;border-top:1px solid #e2e5ea;display:flex;justify-content:space-between;color:#747c89;font-size:13px}.modal{position:fixed;inset:0;background:rgba(12,16,23,.55);display:grid;place-items:center;padding:20px;z-index:30}.hidden{display:none}.modal-card{background:#fff;border-radius:18px;padding:32px;max-width:520px;width:100%;position:relative;box-shadow:0 25px 90px rgba(0,0,0,.25)}.close{position:absolute;right:16px;top:12px;border:0;background:none;font-size:28px;cursor:pointer;color:#6c7380}.analysis{text-align:center;padding:20px}.loader{width:48px;height:48px;border:4px solid #e2e6eb;border-top-color:#111827;border-radius:50%;animation:spin .8s linear infinite;margin:10px auto 25px}@keyframes spin{to{transform:rotate(360deg)}}.result-score{font-size:64px;font-weight:900;letter-spacing:-.05em}.result-score span{font-size:14px;color:#7d8592}.result-list{text-align:left;margin-top:25px}.result-item{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid #edf0f3;font-size:14px}.locked{background:#f1f3f6;border-radius:10px;padding:15px;margin-top:15px}.locked b{display:block;margin-bottom:5px}@media(max-width:800px){.nav nav{display:none}.nav{padding:0 20px}.nav-btn{padding:9px 11px;font-size:12px}.hero{padding-top:65px}.url-form{flex-direction:column;background:transparent;border:0;box-shadow:none;gap:8px}.url-form input,.url-form button{width:100%;border:1px solid #dfe3e9;border-radius:11px;padding:15px}.dashboard-preview aside{display:none}.dash{padding:20px}.score-row{flex-direction:column;align-items:flex-start}.mini-grid{width:100%}.cards,.price-grid{grid-template-columns:1fr 1fr}.how{grid-template-columns:1fr;gap:30px}footer{flex-direction:column;gap:15px}}@media(max-width:520px){.cards,.price-grid{grid-template-columns:1fr}.hero h1{font-size:48px}.mini-grid{grid-template-columns:1fr}.browser{border-radius:14px}.preview-wrap{padding-left:12px;padding-right:12px}.section{padding-top:70px;padding-bottom:70px}}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-</style>
+    <title>RankPilot — SEO Intelligence</title>
+    <meta name="description" content="RankPilot analiza tu web, detecta problemas SEO y te ayuda a mejorar tu posicionamiento en Google.">
+
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<header class="nav">
-  <a class="brand" href="#"><span class="brand-mark">R</span> RankPilot</a>
-  <nav>
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-  </nav>
-  <a class="nav-btn" href="#analyzer">Analyze website</a>
-</header>
 
-<main>
-<section class="hero">
-  <div class="badge">⚡ SEO audit in seconds</div>
-  <h1>Find what's holding<br><span>your website back.</span></h1>
-  <p>Analyze your website's SEO, discover problems and get actionable recommendations in seconds.</p>
-  <form id="auditForm" class="url-form">
-    <input id="urlInput" type="text" placeholder="https://yourwebsite.com" autocomplete="url">
-    <button type="submit">Analyze Website →</button>
-  </form>
-  <small>No credit card required · Free audit available</small>
-</section>
+    <!-- HEADER -->
+    <header class="navbar">
+        <div class="container nav-container">
 
-<section id="analyzer" class="preview-wrap">
-  <div class="browser">
-    <div class="browser-top"><span></span><span></span><span></span><b>rankpilot.app/audit</b></div>
-    <div class="dashboard-preview">
-      <aside>
-        <strong>RankPilot</strong>
-        <div class="side active">Overview</div><div class="side">My websites</div><div class="side">Audits</div><div class="side">Monitoring</div><div class="side">Reports</div>
-      </aside>
-      <div class="dash">
-        <div class="dash-head"><div><p>Website audit</p><h3>example.com</h3></div><span class="pill">Just now</span></div>
-        <div class="score-row">
-          <div class="score"><strong>73</strong><span>/100</span><small>SEO SCORE</small></div>
-          <div class="mini-grid">
-            <div><span>Technical SEO</span><b>82</b></div><div><span>On-page SEO</span><b>68</b></div>
-            <div><span>Performance</span><b>76</b></div><div><span>Content</span><b>71</b></div>
-          </div>
+            <a href="#" class="logo">
+                <span class="logo-mark">R</span>
+                <span>Rank<span class="logo-accent">Pilot</span></span>
+            </a>
+
+            <nav class="nav-links">
+                <a href="#features">Funciones</a>
+                <a href="#how-it-works">Cómo funciona</a>
+                <a href="#pricing">Precios</a>
+                <a href="#faq">FAQ</a>
+            </nav>
+
+            <div class="nav-actions">
+                <button class="btn btn-ghost" id="loginBtn">
+                    Iniciar sesión
+                </button>
+
+                <a href="#analyzer" class="btn btn-primary">
+                    Analizar web
+                </a>
+            </div>
+
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Abrir menú">
+                ☰
+            </button>
+
         </div>
-        <div class="issues"><h4>17 opportunities found</h4><div class="issue"><i class="red"></i><span>Missing meta description</span><b>CRITICAL</b></div><div class="issue"><i class="orange"></i><span>7 images missing ALT attributes</span><b>HIGH</b></div><div class="issue"><i class="yellow"></i><span>H1 could be more descriptive</span><b>MEDIUM</b></div></div>
-      </div>
-    </div>
-  </div>
-</section>
+    </header>
 
-<section id="features" class="section">
-  <div class="eyebrow">WHAT YOU GET</div>
-  <h2>Everything you need to understand your SEO.</h2>
-  <div class="cards">
-    <article><div class="icon">⌁</div><h3>Technical SEO</h3><p>Check indexing signals, HTTPS, canonicals, robots.txt, sitemaps and more.</p></article>
-    <article><div class="icon">A</div><h3>On-page SEO</h3><p>Find weak titles, descriptions, headings, images and internal linking opportunities.</p></article>
-    <article><div class="icon">✦</div><h3>AI recommendations</h3><p>Turn technical findings into clear, practical fixes your team can implement.</p></article>
-    <article><div class="icon">↗</div><h3>SEO monitoring</h3><p>Track your score and issues over time instead of running one-off audits.</p></article>
-  </div>
-</section>
 
-<section class="how section">
-  <div><div class="eyebrow">HOW IT WORKS</div><h2>From URL to action plan.</h2></div>
-  <div class="steps">
-    <div><b>01</b><h3>Enter your URL</h3><p>Tell RankPilot which website you want to inspect.</p></div>
-    <div><b>02</b><h3>Run the audit</h3><p>We organize technical and on-page checks into one report.</p></div>
-    <div><b>03</b><h3>Fix what matters</h3><p>See the issue, why it matters and what to change.</p></div>
-  </div>
-</section>
+    <!-- HERO -->
+    <main>
 
-<section id="pricing" class="section pricing">
-  <div class="eyebrow">PRICING</div><h2>Start free. Upgrade when you need more.</h2>
-  <div class="price-grid">
-    <article class="price"><h3>Free</h3><div class="amount">€0 <span>/month</span></div><p>For trying the audit.</p><ul><li>1 website</li><li>Basic SEO audit</li><li>SEO score</li><li>5 visible issues</li></ul><a href="#analyzer">Start free</a></article>
-    <article class="price featured"><div class="popular">POPULAR</div><h3>Starter</h3><div class="amount">€9.90 <span>/month</span></div><p>For website owners.</p><ul><li>3 websites</li><li>Unlimited audits</li><li>Full SEO audit</li><li>AI recommendations</li><li>Monitoring & reports</li></ul><a href="#analyzer">Choose Starter</a></article>
-    <article class="price"><h3>Business</h3><div class="amount">€29.90 <span>/month</span></div><p>For growing teams.</p><ul><li>10 websites</li><li>Keyword tracking</li><li>Competitor analysis</li><li>Automated reports</li></ul><a href="#analyzer">Choose Business</a></article>
-  </div>
-</section>
+        <section class="hero">
 
-<section id="faq" class="section faq">
-  <div class="eyebrow">FAQ</div><h2>Questions, answered.</h2>
-  <details><summary>Can I use RankPilot for free?</summary><p>Yes. The prototype includes a free audit flow. Paid plans are designed for deeper audits and monitoring.</p></details>
-  <details><summary>Does a good score guarantee Google rankings?</summary><p>No. SEO tools can identify technical and content opportunities, but no tool can guarantee a specific Google ranking.</p></details>
-  <details><summary>Can it analyze real websites?</summary><p>This first version is a zero-cost prototype. The next phase can connect a secure crawler and services such as PageSpeed Insights and Search Console.</p></details>
-</section>
-</main>
+            <div class="hero-glow glow-one"></div>
+            <div class="hero-glow glow-two"></div>
 
-<footer><div class="brand"><span class="brand-mark">R</span> RankPilot</div><p>Find SEO problems. Fix them. Grow your website.</p></footer>
+            <div class="container hero-container">
 
-<div id="modal" class="modal hidden">
-  <div class="modal-card">
-    <button id="closeModal" class="close">×</button>
-    <div id="modalContent"></div>
-  </div>
-</div>
-<script>
-const form = document.getElementById("auditForm");
-const input = document.getElementById("urlInput");
-const modal = document.getElementById("modal");
-const content = document.getElementById("modalContent");
-const close = document.getElementById("closeModal");
+                <div class="hero-content">
 
-function normalizeUrl(value){
-  let url = value.trim();
-  if(!url) return null;
-  if(!/^https?:\/\//i.test(url)) url = "https://" + url;
-  try { return new URL(url); } catch { return null; }
-}
+                    <div class="eyebrow">
+                        <span class="status-dot"></span>
+                        SEO Intelligence Platform
+                    </div>
 
-form.addEventListener("submit", (e)=>{
-  e.preventDefault();
-  const url = normalizeUrl(input.value);
-  if(!url){
-    input.focus();
-    input.style.outline = "2px solid #e24a4a";
-    setTimeout(()=>input.style.outline="",1200);
-    return;
-  }
-  modal.classList.remove("hidden");
-  content.innerHTML = `<div class="analysis">
-    <div class="loader"></div>
-    <h2>Analyzing ${url.hostname}</h2>
-    <p id="step">Crawling website...</p>
-  </div>`;
-  const steps = ["Crawling website...","Checking technical SEO...","Analyzing metadata...","Checking headings...","Analyzing images...","Checking internal links..."];
-  let i=0;
-  const timer=setInterval(()=>{
-    i++;
-    if(i<steps.length) document.getElementById("step").textContent=steps[i];
-    else {
-      clearInterval(timer);
-      showResults(url.hostname);
-    }
-  },650);
-});
+                    <h1>
+                        Convierte tu web en una
+                        <span class="gradient-text">máquina de posicionamiento.</span>
+                    </h1>
 
-function showResults(host){
-  content.innerHTML = `<div class="analysis">
-    <div class="eyebrow">AUDIT COMPLETE</div>
-    <h2>${host}</h2>
-    <div class="result-score">73 <span>/ 100</span></div>
-    <p>We found <b>17 SEO opportunities</b>.</p>
-    <div class="result-list">
-      <div class="result-item">🔴 <span><b>Missing meta description</b><br>High-impact technical/on-page issue.</span></div>
-      <div class="result-item">🟠 <span><b>7 images missing ALT attributes</b><br>Add descriptive alternative text.</span></div>
-      <div class="result-item">🟠 <span><b>Duplicate title tags detected</b><br>Make important pages unique.</span></div>
-      <div class="result-item">🟡 <span><b>H1 could be more descriptive</b><br>Clarify the primary topic.</span></div>
-      <div class="result-item">🟡 <span><b>Internal linking could be improved</b><br>Create stronger contextual connections.</span></div>
-    </div>
-    <div class="locked"><b>🔒 12 more opportunities are locked</b><span>Upgrade to unlock the full audit and AI-powered fixes.</span></div>
-    <br><a class="nav-btn" href="#pricing" onclick="closeModalNow()">View plans</a>
-  </div>`;
-}
-function closeModalNow(){ modal.classList.add("hidden"); }
-close.addEventListener("click", closeModalNow);
-modal.addEventListener("click",(e)=>{if(e.target===modal) closeModalNow();});
+                    <p class="hero-description">
+                        Analiza tu web, descubre oportunidades SEO y encuentra
+                        exactamente qué debes mejorar para competir por las
+                        primeras posiciones de Google.
+                    </p>
 
-</script>
+                    <div class="hero-buttons">
+                        <a href="#analyzer" class="btn btn-primary btn-large">
+                            Analizar mi web
+                            <span>→</span>
+                        </a>
+
+                        <a href="#features" class="btn btn-secondary btn-large">
+                            Ver funciones
+                        </a>
+                    </div>
+
+                    <div class="hero-trust">
+                        <div class="trust-item">
+                            <span>✓</span>
+                            Análisis instantáneo
+                        </div>
+
+                        <div class="trust-item">
+                            <span>✓</span>
+                            Sin tarjeta
+                        </div>
+
+                        <div class="trust-item">
+                            <span>✓</span>
+                            Resultados accionables
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <!-- DASHBOARD PREVIEW -->
+                <div class="hero-dashboard">
+
+                    <div class="dashboard-window">
+
+                        <div class="window-header">
+                            <div class="window-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+
+                            <div class="window-url">
+                                rankpilot.app/dashboard
+                            </div>
+                        </div>
+
+                        <div class="dashboard-content">
+
+                            <div class="dashboard-top">
+                                <div>
+                                    <small>SEO SCORE</small>
+                                    <div class="score-row">
+                                        <strong>87</strong>
+                                        <span>/100</span>
+                                    </div>
+                                </div>
+
+                                <div class="score-badge">
+                                    Excellent
+                                </div>
+                            </div>
+
+                            <div class="dashboard-grid">
+
+                                <div class="metric-card">
+                                    <span class="metric-icon">↗</span>
+                                    <small>Keywords</small>
+                                    <strong>247</strong>
+                                    <span class="metric-positive">+18.4%</span>
+                                </div>
+
+                                <div class="metric-card">
+                                    <span class="metric-icon">◎</span>
+                                    <small>Organic Traffic</small>
+                                    <strong>12.8K</strong>
+                                    <span class="metric-positive">+24.7%</span>
+                                </div>
+
+                                <div class="metric-card">
+                                    <span class="metric-icon">◉</span>
+                                    <small>Backlinks</small>
+                                    <strong>1,842</strong>
+                                    <span class="metric-positive">+7.2%</span>
+                                </div>
+
+                            </div>
+
+                            <div class="chart-card">
+
+                                <div class="chart-header">
+                                    <div>
+                                        <small>Organic visibility</small>
+                                        <strong>+32.8%</strong>
+                                    </div>
+
+                                    <span>Last 30 days</span>
+                                </div>
+
+                                <div class="fake-chart">
+                                    <div class="chart-line"></div>
+
+                                    <div class="chart-point point-one"></div>
+                                    <div class="chart-point point-two"></div>
+                                    <div class="chart-point point-three"></div>
+                                    <div class="chart-point point-four"></div>
+                                    <div class="chart-point point-five"></div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ANALYZER -->
+        <section class="analyzer-section" id="analyzer">
+
+            <div class="container">
+
+                <div class="section-heading centered">
+
+                    <div class="section-label">
+                        FREE SEO AUDIT
+                    </div>
+
+                    <h2>
+                        Descubre qué está frenando
+                        <span class="gradient-text">tu posicionamiento.</span>
+                    </h2>
+
+                    <p>
+                        Introduce tu URL y obtén una primera auditoría SEO
+                        de tu página.
+                    </p>
+
+                </div>
+
+
+                <div class="analyzer-box">
+
+                    <div class="analyzer-icon">
+                        🔎
+                    </div>
+
+                    <h3>Analiza tu página web</h3>
+
+                    <p>
+                        Comprueba rápidamente el estado SEO de cualquier URL.
+                    </p>
+
+                    <form id="seoForm" class="url-form">
+
+                        <div class="url-input-wrapper">
+                            <span>https://</span>
+
+                            <input
+                                type="text"
+                                id="urlInput"
+                                placeholder="tudominio.com"
+                                autocomplete="off"
+                                required
+                            >
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            Analizar web
+                            <span>→</span>
+                        </button>
+
+                    </form>
+
+                    <div id="analyzerMessage" class="analyzer-message"></div>
+
+                    <div class="analyzer-note">
+                        <span>🔒</span>
+                        Tus datos se utilizan únicamente para generar el análisis.
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- FEATURES -->
+        <section class="features-section" id="features">
+
+            <div class="container">
+
+                <div class="section-heading centered">
+
+                    <div class="section-label">
+                        TODO EN UNO
+                    </div>
+
+                    <h2>
+                        Todo lo que necesitas para
+                        <span class="gradient-text">crecer en Google.</span>
+                    </h2>
+
+                    <p>
+                        RankPilot reúne las herramientas SEO que necesitas
+                        en un único lugar.
+                    </p>
+
+                </div>
+
+
+                <div class="features-grid">
+
+                    <article class="feature-card">
+
+                        <div class="feature-icon">
+                            🔍
+                        </div>
+
+                        <h3>SEO Audit</h3>
+
+                        <p>
+                            Detecta errores técnicos, problemas de contenido,
+                            etiquetas, rendimiento y oportunidades SEO.
+                        </p>
+
+                        <a href="#analyzer">
+                            Analizar web →
+                        </a>
+
+                    </article>
+
+
+                    <article class="feature-card">
+
+                        <div class="feature-icon">
+                            📈
+                        </div>
+
+                        <h3>Keyword Tracking</h3>
+
+                        <p>
+                            Controla tus posiciones, descubre palabras clave
+                            y observa cómo evoluciona tu visibilidad.
+                        </p>
+
+                        <span class="feature-badge">
+                            PRO
+                        </span>
+
+                    </article>
+
+
+                    <article class="feature-card">
+
+                        <div class="feature-icon">
+                            🕵️
+                        </div>
+
+                        <h3>Competitor Intelligence</h3>
+
+                        <p>
+                            Descubre por qué otras webs están posicionando
+                            y encuentra oportunidades para competir.
+                        </p>
+
+                        <span class="feature-badge">
+                            PRO
+                        </span>
+
+                    </article>
+
+
+                    <article class="feature-card">
+
+                        <div class="feature-icon">
+                            🤖
+                        </div>
+
+                        <h3>AI SEO Assistant</h3>
+
+                        <p>
+                            Obtén recomendaciones inteligentes para mejorar
+                            títulos, contenidos y estrategia SEO.
+                        </p>
+
+                        <span class="feature-badge">
+                            AI
+                        </span>
+
+                    </article>
+
+
+                    <article class="feature-card">
+
+                        <div class="feature-icon">
+                            ⚡
+                        </div>
+
+                        <h3>Performance</h3>
+
+                        <p>
+                            Detecta problemas que afectan a la velocidad,
+                            experiencia de usuario y Core Web Vitals.
+                        </p>
+
+                        <span class="feature-badge">
+                            PRO
+                        </span>
+
+                    </article>
+
+
+                    <article class="feature-card">
+
+                        <div class="feature-icon">
+                            📊
+                        </div>
+
+                        <h3>Reports</h3>
+
+                        <p>
+                            Genera informes SEO claros y profesionales para
+                            controlar tus progresos o compartirlos con clientes.
+                        </p>
+
+                        <span class="feature-badge">
+                            PRO
+                        </span>
+
+                    </article>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- HOW IT WORKS -->
+        <section class="steps-section" id="how-it-works">
+
+            <div class="container">
+
+                <div class="section-heading centered">
+
+                    <div class="section-label">
+                        CÓMO FUNCIONA
+                    </div>
+
+                    <h2>
+                        SEO sin complicaciones.
+                    </h2>
+
+                    <p>
+                        Tres pasos para descubrir dónde puedes mejorar.
+                    </p>
+
+                </div>
+
+
+                <div class="steps-grid">
+
+                    <div class="step">
+
+                        <div class="step-number">
+                            01
+                        </div>
+
+                        <div class="step-line"></div>
+
+                        <h3>Introduce tu web</h3>
+
+                        <p>
+                            Añade la URL de la página que quieres analizar.
+                        </p>
+
+                    </div>
+
+
+                    <div class="step">
+
+                        <div class="step-number">
+                            02
+                        </div>
+
+                        <div class="step-line"></div>
+
+                        <h3>RankPilot analiza</h3>
+
+                        <p>
+                            Revisamos los principales factores SEO de tu página.
+                        </p>
+
+                    </div>
+
+
+                    <div class="step">
+
+                        <div class="step-number">
+                            03
+                        </div>
+
+                        <div class="step-line"></div>
+
+                        <h3>Mejora tu web</h3>
+
+                        <p>
+                            Recibe recomendaciones claras sobre qué hacer
+                            y dónde empezar.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- SEO SCORE -->
+        <section class="score-section">
+
+            <div class="container">
+
+                <div class="score-card">
+
+                    <div class="score-card-content">
+
+                        <div class="section-label">
+                            SEO SCORE
+                        </div>
+
+                        <h2>
+                            Convierte los datos en
+                            <span class="gradient-text">acciones.</span>
+                        </h2>
+
+                        <p>
+                            RankPilot transforma cientos de señales SEO en
+                            una puntuación sencilla y recomendaciones que
+                            puedes aplicar.
+                        </p>
+
+                        <ul class="check-list">
+
+                            <li>
+                                <span>✓</span>
+                                Problemas críticos
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Oportunidades de crecimiento
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Recomendaciones priorizadas
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Seguimiento de progreso
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <div class="score-visual">
+
+                        <div class="score-circle">
+                            <div>
+                                <strong>87</strong>
+                                <span>/100</span>
+                            </div>
+                        </div>
+
+                        <div class="score-status">
+                            Excellent SEO
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- PRICING -->
+        <section class="pricing-section" id="pricing">
+
+            <div class="container">
+
+                <div class="section-heading centered">
+
+                    <div class="section-label">
+                        PRICING
+                    </div>
+
+                    <h2>
+                        Empieza gratis.
+                        <span class="gradient-text">Crece cuando quieras.</span>
+                    </h2>
+
+                    <p>
+                        Utiliza las funciones básicas gratis y desbloquea
+                        herramientas avanzadas cuando las necesites.
+                    </p>
+
+                </div>
+
+
+                <div class="pricing-grid">
+
+                    <!-- FREE -->
+                    <div class="pricing-card">
+
+                        <div class="pricing-header">
+
+                            <span class="pricing-name">
+                                Starter
+                            </span>
+
+                            <p>
+                                Para empezar con SEO.
+                            </p>
+
+                            <div class="price">
+                                <strong>0€</strong>
+                                <span>/mes</span>
+                            </div>
+
+                        </div>
+
+                        <button class="btn btn-secondary pricing-button">
+                            Empezar gratis
+                        </button>
+
+                        <ul class="pricing-list">
+
+                            <li>
+                                <span>✓</span>
+                                Auditoría SEO básica
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                SEO Score
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Problemas principales
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                1 proyecto
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- PRO -->
+                    <div class="pricing-card pricing-featured">
+
+                        <div class="popular-badge">
+                            MÁS POPULAR
+                        </div>
+
+                        <div class="pricing-header">
+
+                            <span class="pricing-name">
+                                Pro
+                            </span>
+
+                            <p>
+                                Para webs que quieren crecer.
+                            </p>
+
+                            <div class="price">
+                                <strong>19€</strong>
+                                <span>/mes</span>
+                            </div>
+
+                        </div>
+
+                        <button class="btn btn-primary pricing-button">
+                            Probar Pro
+                        </button>
+
+                        <ul class="pricing-list">
+
+                            <li>
+                                <span>✓</span>
+                                Auditorías ilimitadas
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Keyword tracking
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Competidores
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                AI SEO Assistant
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Informes avanzados
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- AGENCY -->
+                    <div class="pricing-card">
+
+                        <div class="pricing-header">
+
+                            <span class="pricing-name">
+                                Agency
+                            </span>
+
+                            <p>
+                                Para agencias y profesionales.
+                            </p>
+
+                            <div class="price">
+                                <strong>49€</strong>
+                                <span>/mes</span>
+                            </div>
+
+                        </div>
+
+                        <button class="btn btn-secondary pricing-button">
+                            Próximamente
+                        </button>
+
+                        <ul class="pricing-list">
+
+                            <li>
+                                <span>✓</span>
+                                Proyectos ilimitados
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                White label
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Informes para clientes
+                            </li>
+
+                            <li>
+                                <span>✓</span>
+                                Automatizaciones
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- FAQ -->
+        <section class="faq-section" id="faq">
+
+            <div class="container">
+
+                <div class="section-heading centered">
+
+                    <div class="section-label">
+                        FAQ
+                    </div>
+
+                    <h2>
+                        Preguntas frecuentes.
+                    </h2>
+
+                </div>
+
+
+                <div class="faq-list">
+
+                    <details class="faq-item">
+
+                        <summary>
+                            ¿Qué es RankPilot?
+                            <span>+</span>
+                        </summary>
+
+                        <p>
+                            RankPilot es una plataforma SEO diseñada para
+                            analizar webs, detectar problemas y encontrar
+                            oportunidades para mejorar su posicionamiento.
+                        </p>
+
+                    </details>
+
+
+                    <details class="faq-item">
+
+                        <summary>
+                            ¿Necesito conocimientos de SEO?
+                            <span>+</span>
+                        </summary>
+
+                        <p>
+                            No. RankPilot está pensado para convertir los
+                            datos técnicos en recomendaciones fáciles de
+                            entender y aplicar.
+                        </p>
+
+                    </details>
+
+
+                    <details class="faq-item">
+
+                        <summary>
+                            ¿Puedo analizar cualquier web?
+                            <span>+</span>
+                        </summary>
+
+                        <p>
+                            Puedes utilizar el auditor para analizar páginas
+                            públicas. Algunas funciones avanzadas dependerán
+                            del plan que utilices.
+                        </p>
+
+                    </details>
+
+
+                    <details class="faq-item">
+
+                        <summary>
+                            ¿Habrá inteligencia artificial?
+                            <span>+</span>
+                        </summary>
+
+                        <p>
+                            Sí. La versión avanzada incorporará funciones de
+                            IA para interpretar problemas SEO y generar
+                            recomendaciones y propuestas de mejora.
+                        </p>
+
+                    </details>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- CTA -->
+        <section class="cta-section">
+
+            <div class="container">
+
+                <div class="cta-card">
+
+                    <div class="cta-glow"></div>
+
+                    <div class="cta-content">
+
+                        <div class="section-label">
+                            START TODAY
+                        </div>
+
+                        <h2>
+                            Tu próxima posición en Google
+                            <span class="gradient-text">empieza aquí.</span>
+                        </h2>
+
+                        <p>
+                            Analiza tu web y descubre nuevas oportunidades SEO.
+                        </p>
+
+                        <a href="#analyzer" class="btn btn-primary btn-large">
+                            Analizar mi web →
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- FOOTER -->
+    <footer class="footer">
+
+        <div class="container">
+
+            <div class="footer-main">
+
+                <div class="footer-brand">
+
+                    <a href="#" class="logo">
+                        <span class="logo-mark">R</span>
+                        <span>Rank<span class="logo-accent">Pilot</span></span>
+                    </a>
+
+                    <p>
+                        SEO intelligence para webs que quieren crecer.
+                    </p>
+
+                </div>
+
+
+                <div class="footer-links">
+
+                    <div>
+                        <h4>Producto</h4>
+                        <a href="#features">Funciones</a>
+                        <a href="#pricing">Precios</a>
+                        <a href="#analyzer">SEO Audit</a>
+                    </div>
+
+                    <div>
+                        <h4>Recursos</h4>
+                        <a href="#how-it-works">Cómo funciona</a>
+                        <a href="#faq">FAQ</a>
+                    </div>
+
+                    <div>
+                        <h4>Legal</h4>
+                        <a href="#">Privacidad</a>
+                        <a href="#">Términos</a>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="footer-bottom">
+
+                <span>
+                    © 2026 RankPilot. Todos los derechos reservados.
+                </span>
+
+                <span>
+                    SEO Intelligence Platform
+                </span>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+
+    <script src="app.js"></script>
+
 </body>
 </html>
