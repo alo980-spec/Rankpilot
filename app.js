@@ -10,7 +10,7 @@ form.addEventListener("submit", async (event) => {
   let url = input.value.trim();
 
   if (!url) {
-    message.innerHTML = "❌ Introduce una URL.";
+    message.innerHTML = `<div class="seo-error">❌ Introduce una URL.</div>`;
     return;
   }
 
@@ -20,8 +20,9 @@ form.addEventListener("submit", async (event) => {
 
   message.innerHTML = `
     <div class="seo-loading">
-      <strong>⏳ Analizando web...</strong>
-      <p>Estamos revisando factores técnicos, contenido e indexabilidad.</p>
+      <div class="loading-spinner"></div>
+      <h3>Analizando ${url}</h3>
+      <p>Revisando SEO técnico, contenido e indexabilidad...</p>
     </div>
   `;
 
@@ -33,36 +34,95 @@ form.addEventListener("submit", async (event) => {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(
-        data.error || "No se pudo analizar la web."
-      );
+      throw new Error(data.error || "No se pudo analizar la web.");
     }
 
     const seo = data.seo;
     const categories = seo.categories;
 
-    const scoreClass =
-      seo.score >= 80
-        ? "good"
-        : seo.score >= 60
-        ? "medium"
-        : "bad";
+    const getStatus = (score) => {
+      if (score >= 80) return "good";
+      if (score >= 60) return "warning";
+      return "bad";
+    };
+
+    const getLabel = (score) => {
+      if (score >= 90) return "Excelente";
+      if (score >= 80) return "Bueno";
+      if (score >= 60) return "Mejorable";
+      return "Necesita atención";
+    };
+
+    const criticalCount = seo.issues.length;
+    const warningCount = seo.warnings.length;
 
     message.innerHTML = `
-      <div class="seo-result">
+      <div class="seo-dashboard">
+
+        <!-- HEADER -->
+
+        <div class="results-header">
+
+          <div>
+            <span class="results-label">ANÁLISIS SEO</span>
+
+            <h2>
+              ${new URL(data.finalUrl).hostname}
+            </h2>
+
+            <p>${data.finalUrl}</p>
+          </div>
+
+          <button
+            class="new-analysis"
+            onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
+          >
+            ← Nuevo análisis
+          </button>
+
+        </div>
+
 
         <!-- SCORE PRINCIPAL -->
 
-        <div class="seo-score-card">
+        <div class="main-score-card">
 
-          <div class="score-circle ${scoreClass}">
-            <span>${seo.score}</span>
-            <small>/100</small>
+          <div class="score-ring ${getStatus(seo.score)}">
+
+            <div class="score-ring-inner">
+              <strong>${seo.score}</strong>
+              <span>/100</span>
+            </div>
+
           </div>
 
-          <div class="score-info">
-            <h2>SEO Score</h2>
-            <p>${data.finalUrl}</p>
+          <div class="score-summary">
+
+            <span class="score-label">SEO SCORE</span>
+
+            <h2>${getLabel(seo.score)}</h2>
+
+            <p>
+              Tu página ha sido analizada en múltiples factores
+              técnicos y de contenido.
+            </p>
+
+            <div class="score-stats">
+
+              <span>
+                🔴 ${criticalCount} problemas
+              </span>
+
+              <span>
+                🟡 ${warningCount} recomendaciones
+              </span>
+
+              <span>
+                🟢 ${seo.passed.length} correctos
+              </span>
+
+            </div>
+
           </div>
 
         </div>
@@ -70,239 +130,256 @@ form.addEventListener("submit", async (event) => {
 
         <!-- CATEGORÍAS -->
 
-        <div class="seo-categories">
+        <div class="section-title">
 
-          <div class="seo-category">
-            <span>Technical SEO</span>
-            <strong>${categories.technical}/100</strong>
-          </div>
-
-          <div class="seo-category">
-            <span>On-Page SEO</span>
-            <strong>${categories.onPage}/100</strong>
-          </div>
-
-          <div class="seo-category">
-            <span>Content</span>
-            <strong>${categories.content}/100</strong>
-          </div>
-
-          <div class="seo-category">
-            <span>Indexability</span>
-            <strong>${categories.indexability}/100</strong>
+          <div>
+            <span>PERFORMANCE</span>
+            <h2>Desglose SEO</h2>
           </div>
 
         </div>
 
+        <div class="category-grid">
 
-        <!-- RESUMEN -->
+          ${categoryCard(
+            "Technical SEO",
+            categories.technical,
+            "Infraestructura y configuración técnica"
+          )}
 
-        <div class="seo-section">
+          ${categoryCard(
+            "On-Page SEO",
+            categories.onPage,
+            "Elementos SEO visibles de la página"
+          )}
 
-          <h3>📊 Resumen SEO</h3>
+          ${categoryCard(
+            "Content",
+            categories.content,
+            "Calidad y cantidad del contenido"
+          )}
 
-          <div class="seo-grid">
-
-            <div>
-              <span>Title</span>
-              <strong>
-                ${seo.title || "❌ No encontrado"}
-              </strong>
-              <small>
-                ${seo.titleLength} caracteres
-              </small>
-            </div>
-
-            <div>
-              <span>Meta description</span>
-              <strong>
-                ${seo.description || "❌ No encontrada"}
-              </strong>
-              <small>
-                ${seo.descriptionLength} caracteres
-              </small>
-            </div>
-
-            <div>
-              <span>H1</span>
-              <strong>${seo.h1Count}</strong>
-            </div>
-
-            <div>
-              <span>H2</span>
-              <strong>${seo.h2Count}</strong>
-            </div>
-
-            <div>
-              <span>H3</span>
-              <strong>${seo.h3Count}</strong>
-            </div>
-
-            <div>
-              <span>Palabras</span>
-              <strong>${seo.wordCount}</strong>
-            </div>
-
-            <div>
-              <span>Imágenes</span>
-              <strong>${seo.imageCount}</strong>
-            </div>
-
-            <div>
-              <span>Imágenes sin ALT</span>
-              <strong>${seo.imagesWithoutAlt}</strong>
-            </div>
-
-            <div>
-              <span>Enlaces internos</span>
-              <strong>${seo.internalLinks}</strong>
-            </div>
-
-            <div>
-              <span>Enlaces externos</span>
-              <strong>${seo.externalLinks}</strong>
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <!-- TÉCNICO -->
-
-        <div class="seo-section">
-
-          <h3>⚙️ Technical SEO</h3>
-
-          <ul class="seo-checklist">
-
-            <li>
-              ${seo.hasHttps ? "✅" : "❌"}
-              HTTPS
-            </li>
-
-            <li>
-              ${seo.hasViewport ? "✅" : "❌"}
-              Mobile viewport
-            </li>
-
-            <li>
-              ${seo.hasCanonical ? "✅" : "❌"}
-              Canonical
-            </li>
-
-            <li>
-              ${seo.hasRobots ? "✅" : "⚠️"}
-              Robots
-            </li>
-
-            <li>
-              ${seo.hasFavicon ? "✅" : "⚠️"}
-              Favicon
-            </li>
-
-            <li>
-              ${seo.hasSchema ? "✅" : "⚠️"}
-              Datos estructurados
-            </li>
-
-            <li>
-              ${seo.hasOpenGraph ? "✅" : "⚠️"}
-              Open Graph
-            </li>
-
-            <li>
-              ${seo.hasTwitterCard ? "✅" : "⚠️"}
-              Twitter Card
-            </li>
-
-            <li>
-              ${seo.language
-                ? `✅ Idioma: ${seo.language}`
-                : "⚠️ Idioma no detectado"}
-            </li>
-
-          </ul>
+          ${categoryCard(
+            "Indexability",
+            categories.indexability,
+            "Factores relacionados con indexación"
+          )}
 
         </div>
 
 
         <!-- PROBLEMAS -->
 
-        ${
-          seo.issues.length > 0
-            ? `
-              <div class="seo-section seo-issues">
+        <div class="section-title">
 
-                <h3>❌ Problemas importantes</h3>
+          <div>
+            <span>PRIORIDADES</span>
+            <h2>Qué deberías solucionar</h2>
+          </div>
 
-                <ul>
-                  ${seo.issues
-                    .map(
-                      (item) =>
-                        `<li>${item}</li>`
-                    )
-                    .join("")}
-                </ul>
+        </div>
 
-              </div>
-            `
-            : `
-              <div class="seo-section seo-success">
+        <div class="problems-card">
 
-                <h3>🎉 No se han detectado problemas críticos</h3>
+          ${
+            seo.issues.length
+              ? seo.issues
+                  .map(
+                    (issue, index) => `
+                      <div class="problem critical">
 
-              </div>
-            `
-        }
+                        <div class="problem-icon">
+                          ${index + 1}
+                        </div>
+
+                        <div class="problem-content">
+
+                          <strong>${issue}</strong>
+
+                          <p>
+                            Este problema puede afectar al rendimiento
+                            SEO de la página.
+                          </p>
+
+                        </div>
+
+                        <button
+                          class="fix-button"
+                          onclick="showFix(this)"
+                        >
+                          Cómo solucionarlo
+                        </button>
+
+                        <div class="fix-content">
+                          Revisa este elemento y corrígelo en el código
+                          o CMS de tu página. Después vuelve a ejecutar
+                          el análisis para comprobar el resultado.
+                        </div>
+
+                      </div>
+                    `
+                  )
+                  .join("")
+              : `
+                <div class="empty-state">
+                  🎉 No se han detectado problemas críticos.
+                </div>
+              `
+          }
+
+          ${
+            seo.warnings.length
+              ? seo.warnings
+                  .map(
+                    (warning, index) => `
+                      <div class="problem warning">
+
+                        <div class="problem-icon">
+                          ${index + 1}
+                        </div>
+
+                        <div class="problem-content">
+
+                          <strong>${warning}</strong>
+
+                          <p>
+                            Es una oportunidad para mejorar el SEO
+                            de esta página.
+                          </p>
+
+                        </div>
+
+                        <button
+                          class="fix-button"
+                          onclick="showFix(this)"
+                        >
+                          Cómo solucionarlo
+                        </button>
+
+                        <div class="fix-content">
+                          Optimiza este elemento siguiendo las buenas
+                          prácticas SEO y vuelve a analizar la página.
+                        </div>
+
+                      </div>
+                    `
+                  )
+                  .join("")
+              : ""
+          }
+
+        </div>
 
 
-        <!-- RECOMENDACIONES -->
+        <!-- DATOS ON PAGE -->
 
-        ${
-          seo.warnings.length > 0
-            ? `
-              <div class="seo-section">
+        <div class="section-title">
 
-                <h3>⚠️ Recomendaciones</h3>
+          <div>
+            <span>ON-PAGE</span>
+            <h2>Elementos de la página</h2>
+          </div>
 
-                <ul>
-                  ${seo.warnings
-                    .map(
-                      (item) =>
-                        `<li>${item}</li>`
-                    )
-                    .join("")}
-                </ul>
+        </div>
 
-              </div>
-            `
-            : ""
-        }
+        <div class="metrics-grid">
+
+          ${metric("Title", seo.title || "No encontrado", seo.titleLength + " caracteres")}
+
+          ${metric(
+            "Meta Description",
+            seo.description || "No encontrada",
+            seo.descriptionLength + " caracteres"
+          )}
+
+          ${metric("H1", seo.h1Count, "etiquetas")}
+
+          ${metric("H2", seo.h2Count, "etiquetas")}
+
+          ${metric("H3", seo.h3Count, "etiquetas")}
+
+          ${metric("Contenido", seo.wordCount, "palabras")}
+
+          ${metric("Imágenes", seo.imageCount, "total")}
+
+          ${metric(
+            "Imágenes sin ALT",
+            seo.imagesWithoutAlt,
+            "sin atributo ALT"
+          )}
+
+          ${metric(
+            "Enlaces internos",
+            seo.internalLinks,
+            "enlaces"
+          )}
+
+          ${metric(
+            "Enlaces externos",
+            seo.externalLinks,
+            "enlaces"
+          )}
+
+        </div>
+
+
+        <!-- TÉCNICO -->
+
+        <div class="section-title">
+
+          <div>
+            <span>TECHNICAL</span>
+            <h2>Configuración técnica</h2>
+          </div>
+
+        </div>
+
+        <div class="technical-grid">
+
+          ${technicalItem("HTTPS", seo.hasHttps)}
+
+          ${technicalItem("Viewport", seo.hasViewport)}
+
+          ${technicalItem("Canonical", seo.hasCanonical)}
+
+          ${technicalItem("Robots", seo.hasRobots)}
+
+          ${technicalItem("Favicon", seo.hasFavicon)}
+
+          ${technicalItem("Schema", seo.hasSchema)}
+
+          ${technicalItem("Open Graph", seo.hasOpenGraph)}
+
+          ${technicalItem("Twitter Card", seo.hasTwitterCard)}
+
+        </div>
 
 
         <!-- CORRECTO -->
 
-        ${
-          seo.passed.length > 0
-            ? `
-              <div class="seo-section">
+        <div class="passed-card">
 
-                <h3>✅ Correctamente configurado</h3>
+          <div class="passed-header">
+            <span>✓</span>
+            <div>
+              <strong>Elementos correctamente configurados</strong>
+              <p>${seo.passed.length} comprobaciones superadas</p>
+            </div>
+          </div>
 
-                <ul>
-                  ${seo.passed
-                    .map(
-                      (item) =>
-                        `<li>${item}</li>`
-                    )
-                    .join("")}
-                </ul>
+          <div class="passed-list">
 
-              </div>
-            `
-            : ""
-        }
+            ${seo.passed
+              .map(
+                (item) => `
+                  <div>✓ ${item}</div>
+                `
+              )
+              .join("")}
+
+          </div>
+
+        </div>
 
       </div>
     `;
@@ -311,10 +388,94 @@ form.addEventListener("submit", async (event) => {
 
     message.innerHTML = `
       <div class="seo-error">
-        ❌ No hemos podido analizar la web.
-        <br>
-        <small>${error.message}</small>
+        <strong>❌ No hemos podido analizar la web.</strong>
+        <p>${error.message}</p>
       </div>
     `;
   }
 });
+
+
+function categoryCard(name, score, description) {
+
+  const status =
+    score >= 80
+      ? "good"
+      : score >= 60
+      ? "warning"
+      : "bad";
+
+  return `
+    <div class="category-card">
+
+      <div class="category-top">
+
+        <div>
+          <strong>${name}</strong>
+          <p>${description}</p>
+        </div>
+
+        <span class="category-score ${status}">
+          ${score}
+        </span>
+
+      </div>
+
+      <div class="progress-bar">
+        <div
+          class="progress-fill ${status}"
+          style="width:${score}%"
+        ></div>
+      </div>
+
+    </div>
+  `;
+}
+
+
+function metric(name, value, subtitle) {
+
+  return `
+    <div class="metric-card">
+
+      <span>${name}</span>
+
+      <strong>${value}</strong>
+
+      <small>${subtitle}</small>
+
+    </div>
+  `;
+}
+
+
+function technicalItem(name, passed) {
+
+  return `
+    <div class="technical-item">
+
+      <span class="${passed ? "tech-good" : "tech-bad"}">
+        ${passed ? "✓" : "!"}
+      </span>
+
+      <strong>${name}</strong>
+
+      <span>
+        ${passed ? "Correcto" : "Revisar"}
+      </span>
+
+    </div>
+  `;
+}
+
+
+function showFix(button) {
+
+  const fix = button.parentElement.querySelector(
+    ".fix-content"
+  );
+
+  if (fix) {
+    fix.classList.toggle("visible");
+  }
+}
