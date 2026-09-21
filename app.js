@@ -2,65 +2,138 @@ const seoForm = document.getElementById("seoForm");
 const urlInput = document.getElementById("urlInput");
 const analyzerMessage = document.getElementById("analyzerMessage");
 
-seoForm.addEventListener("submit", function (event) {
+seoForm.addEventListener("submit", async function (event) {
   event.preventDefault();
 
   let url = urlInput.value.trim();
 
   if (!url) {
-    analyzerMessage.textContent = "Introduce una URL para comenzar el análisis.";
-    analyzerMessage.style.color = "#ff6b6b";
+    showMessage("Introduce una URL para analizar.", "error");
     return;
   }
 
-  // Añadir https:// si el usuario no lo escribe
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     url = "https://" + url;
   }
 
-  analyzerMessage.style.color = "#98a2b3";
-  analyzerMessage.textContent = "Analizando tu web...";
+  showMessage("Analizando tu web...", "loading");
 
-  // Simulación del análisis inicial
-  setTimeout(() => {
-    analyzerMessage.style.color = "#6d5dfc";
-    analyzerMessage.innerHTML = `
-      <strong>Análisis completado.</strong><br>
-      RankPilot ha preparado una primera auditoría de ${url}.
-    `;
-  }, 1800);
-});
-    <p id="step">Crawling website...</p>
-  </div>`;
-  const steps = ["Crawling website...","Checking technical SEO...","Analyzing metadata...","Checking headings...","Analyzing images...","Checking internal links..."];
-  let i=0;
-  const timer=setInterval(()=>{
-    i++;
-    if(i<steps.length) document.getElementById("step").textContent=steps[i];
-    else {
-      clearInterval(timer);
-      showResults(url.hostname);
+  try {
+    const response = await fetch(
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    );
+
+    if (!response.ok) {
+      throw new Error("No se pudo acceder a la web.");
     }
-  },650);
+
+    const html = await response.text();
+
+    const parser = new DOMParser();
+    const documentPage = parser.parseFromString(html, "text/html");
+
+    const title = documentPage.querySelector("title")?.textContent.trim() || "";
+    const description =
+      documentPage
+        .querySelector('meta[name="description"]')
+        ?.getAttribute("content")
+        ?.trim() || "";
+
+    const h1s = [...documentPage.querySelectorAll("h1")].map(
+      (h1) => h1.textContent.trim()
+    );
+
+    const images = documentPage.querySelectorAll("img");
+    const imagesWithoutAlt = [...images].filter(
+      (img) => !img.getAttribute("alt")?.trim()
+    );
+
+    const links = documentPage.querySelectorAll("a");
+
+    const results = {
+      url,
+      title,
+      description,
+      h1Count: h1s.length,
+      h1s,
+      images: images.length,
+      imagesWithoutAlt: imagesWithoutAlt.length,
+      links: links.length
+    };
+
+    displayResults(results);
+
+  } catch (error) {
+    console.error(error);
+
+    showMessage(
+      "No hemos podido analizar esta web. Prueba con otra URL.",
+      "error"
+    );
+  }
 });
 
-function showResults(host){
-  content.innerHTML = `<div class="analysis">
-    <div class="eyebrow">AUDIT COMPLETE</div>
-    <h2>${host}</h2>
-    <div class="result-score">73 <span>/ 100</span></div>
-    <p>We found <b>17 SEO opportunities</b>.</p>
-    <div class="result-list">
-      <div class="result-item">🔴 <span><b>Missing meta description</b><br>High-impact technical/on-page issue.</span></div>
-      <div class="result-item">🟠 <span><b>7 images missing ALT attributes</b><br>Add descriptive alternative text.</span></div>
-      <div class="result-item">🟠 <span><b>Duplicate title tags detected</b><br>Make important pages unique.</span></div>
-      <div class="result-item">🟡 <span><b>H1 could be more descriptive</b><br>Clarify the primary topic.</span></div>
-      <div class="result-item">🟡 <span><b>Internal linking could be improved</b><br>Create stronger contextual connections.</span></div>
-    </div>
-    <div class="locked"><b>🔒 12 more opportunities are locked</b><span>Upgrade to unlock the full audit and AI-powered fixes.</span></div>
-    <br><a class="nav-btn" href="#pricing" onclick="closeModalNow()">View plans</a>
-  </div>`;
+
+function showMessage(message, type) {
+  analyzerMessage.textContent = message;
+
+  if (type === "error") {
+    analyzerMessage.style.color = "#ff6b6b";
+  } else {
+    analyzerMessage.style.color = "#98a2b3";
+  }
 }
-function closeModalNow(){ modal.classList.add("hidden"); }
-close.addEventListener("click", closeModalNow);
-modal.addEventListener("click",(e)=>{if(e.target===modal) closeModalNow();});
+
+
+function displayResults(results) {
+  analyzerMessage.innerHTML = `
+    <div style="
+      margin-top: 25px;
+      padding: 25px;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 16px;
+      background: #0f1421;
+      text-align: left;
+    ">
+
+      <h3 style="margin-bottom: 20px;">
+        SEO Audit
+      </h3>
+
+      <p>
+        <strong>URL:</strong> ${results.url}
+      </p>
+
+      <p>
+        <strong>Title:</strong>
+        ${results.title || "❌ No encontrado"}
+      </p>
+
+      <p>
+        <strong>Meta description:</strong>
+        ${results.description || "❌ No encontrada"}
+      </p>
+
+      <p>
+        <strong>H1:</strong>
+        ${results.h1Count}
+      </p>
+
+      <p>
+        <strong>Imágenes:</strong>
+        ${results.images}
+      </p>
+
+      <p>
+        <strong>Imágenes sin ALT:</strong>
+        ${results.imagesWithoutAlt}
+      </p>
+
+      <p>
+        <strong>Enlaces:</strong>
+        ${results.links}
+      </p>
+
+    </div>
+  `;
+}
