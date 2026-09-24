@@ -10,7 +10,7 @@ let currentData = null;
 
 
 /* =========================================================
-   FORMULARIO PRINCIPAL
+   FORMULARIO
 ========================================================= */
 
 if (form) {
@@ -55,7 +55,8 @@ async function analyzeWebsite(url, competitors = []) {
       </h3>
 
       <p>
-        Revisando SEO técnico, contenido, keywords e indexabilidad...
+        Revisando SEO técnico, contenido,
+        keywords e indexabilidad...
       </p>
 
     </div>
@@ -110,7 +111,7 @@ async function analyzeWebsite(url, competitors = []) {
 
 
 /* =========================================================
-   RENDER PRINCIPAL
+   RENDER RESULTADOS
 ========================================================= */
 
 function renderResults(data) {
@@ -143,13 +144,12 @@ function renderResults(data) {
     data.finalUrl || currentMainUrl
   );
 
+
   message.innerHTML = `
 
     <div class="seo-dashboard">
 
-      <!-- =================================================
-           HEADER
-      ================================================== -->
+      <!-- HEADER -->
 
       <div class="results-header">
 
@@ -164,7 +164,9 @@ function renderResults(data) {
           </h2>
 
           <p>
-            ${escapeHtml(data.finalUrl || currentMainUrl)}
+            ${escapeHtml(
+              data.finalUrl || currentMainUrl
+            )}
           </p>
 
         </div>
@@ -182,9 +184,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- =================================================
-           SCORE PRINCIPAL
-      ================================================== -->
+      <!-- SCORE -->
 
       <div class="main-score-card">
 
@@ -221,7 +221,6 @@ function renderResults(data) {
             keywords e indexabilidad.
           </p>
 
-
           <div class="score-stats">
 
             <span>
@@ -243,9 +242,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- =================================================
-           COMPETIDORES
-      ================================================== -->
+      <!-- COMPETIDORES -->
 
       ${
         data.competitors &&
@@ -258,9 +255,7 @@ function renderResults(data) {
       }
 
 
-      <!-- =================================================
-           ACTION PLAN
-      ================================================== -->
+      <!-- ACTION PLAN -->
 
       ${renderActionPlan(
         seo,
@@ -269,23 +264,17 @@ function renderResults(data) {
       )}
 
 
-      <!-- =================================================
-           KEYWORD INTELLIGENCE
-      ================================================== -->
+      <!-- KEYWORD INTELLIGENCE -->
 
       ${renderKeywordIntelligence(seo)}
 
 
-      <!-- =================================================
-           KEYWORD RECOMMENDATIONS
-      ================================================== -->
+      <!-- KEYWORD RECOMMENDATIONS -->
 
       ${renderKeywordRecommendations(seo)}
 
 
-      <!-- =================================================
-           CATEGORÍAS
-      ================================================== -->
+      <!-- CATEGORÍAS -->
 
       <div class="section-title">
 
@@ -333,9 +322,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- =================================================
-           PROBLEMAS
-      ================================================== -->
+      <!-- PROBLEMAS -->
 
       <div class="section-title">
 
@@ -464,9 +451,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- =================================================
-           ON PAGE
-      ================================================== -->
+      <!-- ON PAGE -->
 
       <div class="section-title">
 
@@ -550,9 +535,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- =================================================
-           TECHNICAL
-      ================================================== -->
+      <!-- TECHNICAL -->
 
       <div class="section-title">
 
@@ -616,9 +599,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- =================================================
-           PASSED
-      ================================================== -->
+      <!-- PASSED -->
 
       <div class="passed-card">
 
@@ -650,7 +631,7 @@ function renderResults(data) {
             seo.passed.length
               ? seo.passed
                   .map(
-                    (item) => `
+                    item => `
                       <div>
                         ✓ ${escapeHtml(item)}
                       </div>
@@ -669,6 +650,7 @@ function renderResults(data) {
       </div>
 
     </div>
+
   `;
 
 
@@ -677,7 +659,7 @@ function renderResults(data) {
 
 
 /* =========================================================
-   SEO ACTION PLAN
+   ACTION PLAN
 ========================================================= */
 
 function renderActionPlan(
@@ -686,21 +668,25 @@ function renderActionPlan(
   competitors = []
 ) {
 
-  const actions = buildActionPlan(
-    seo,
-    competitorAnalysis,
-    competitors
-  );
+  const actions =
+    buildActionPlan(
+      seo,
+      competitorAnalysis,
+      competitors
+    );
+
 
   const high =
     actions.filter(
       action => action.priority === "high"
     );
 
+
   const medium =
     actions.filter(
       action => action.priority === "medium"
     );
+
 
   const opportunities =
     actions.filter(
@@ -1008,138 +994,140 @@ function buildActionPlan(
 
 
   /* =====================================================
-     PROBLEMAS DEL WORKER
+     PROBLEMAS CRÍTICOS
   ===================================================== */
 
-  (seo.issues || []).forEach((issue) => {
+  (seo.issues || []).forEach(
+    issue => {
 
-    const text =
-      String(issue).toLowerCase();
-
-
-    let reason =
-      "Este problema puede afectar negativamente al rendimiento SEO de la página.";
-
-    let fix =
-      "Revisa este elemento directamente en tu web o CMS y vuelve a ejecutar el análisis después de corregirlo.";
-
-    let impact = "Alto";
+      const text =
+        String(issue).toLowerCase();
 
 
-    if (text.includes("title")) {
+      let reason =
+        "Este problema puede afectar negativamente al rendimiento SEO de la página.";
 
-      reason =
-        "El title ayuda a los buscadores a entender el tema principal de la página.";
+      let fix =
+        "Revisa este elemento directamente en tu web o CMS y vuelve a ejecutar el análisis después de corregirlo.";
 
-      fix =
-        "Crea un title único y descriptivo que incluya la temática principal de la página. Intenta mantenerlo aproximadamente entre 30 y 60 caracteres.";
+      let impact = "Alto";
+
+
+      if (text.includes("title")) {
+
+        reason =
+          "El title ayuda a los buscadores a entender el tema principal de la página.";
+
+        fix =
+          "Crea un title único y descriptivo que incluya la temática principal de la página. Intenta mantenerlo aproximadamente entre 30 y 60 caracteres.";
+
+      }
+
+
+      else if (
+        text.includes("description") ||
+        text.includes("meta description")
+      ) {
+
+        reason =
+          "La meta description ayuda a explicar el contenido de la página en los resultados de búsqueda.";
+
+        fix =
+          "Escribe una descripción única y atractiva que explique claramente qué ofrece la página.";
+
+      }
+
+
+      else if (text.includes("h1")) {
+
+        reason =
+          "El H1 ayuda a establecer el tema principal del contenido.";
+
+        fix =
+          "Utiliza un único H1 principal y haz que describa claramente el contenido de la página.";
+
+      }
+
+
+      else if (text.includes("https")) {
+
+        reason =
+          "HTTPS protege la conexión y forma parte de la configuración técnica básica de una web.";
+
+        fix =
+          "Instala o activa un certificado SSL y fuerza la versión HTTPS de la web.";
+
+      }
+
+
+      else if (text.includes("canonical")) {
+
+        reason =
+          "La canonical ayuda a los buscadores a identificar la versión principal de una URL.";
+
+        fix =
+          "Añade una etiqueta rel=\"canonical\" apuntando a la URL principal de la página.";
+
+      }
+
+
+      else if (text.includes("viewport")) {
+
+        reason =
+          "La configuración viewport es importante para una correcta visualización móvil.";
+
+        fix =
+          "Añade la etiqueta meta viewport estándar dentro del <head>.";
+
+      }
+
+
+      else if (text.includes("robots")) {
+
+        reason =
+          "La configuración robots puede afectar a cómo los buscadores rastrean la página.";
+
+        fix =
+          "Comprueba que robots.txt exista, sea accesible y no bloquee accidentalmente páginas importantes.";
+
+      }
+
+
+      else if (text.includes("schema")) {
+
+        reason =
+          "Los datos estructurados ayudan a los buscadores a interpretar determinados tipos de contenido.";
+
+        fix =
+          "Añade Schema.org en formato JSON-LD cuando exista un tipo de marcado relevante.";
+
+        impact = "Medio";
+
+      }
+
+
+      else if (text.includes("alt")) {
+
+        reason =
+          "El texto ALT ayuda a describir las imágenes.";
+
+        fix =
+          "Añade atributos ALT descriptivos a las imágenes relevantes.";
+
+      }
+
+
+      addAction(
+        "high",
+        issue,
+        reason,
+        fix,
+        impact,
+        "SEO"
+      );
 
     }
-
-
-    else if (
-      text.includes("description") ||
-      text.includes("meta description")
-    ) {
-
-      reason =
-        "La meta description ayuda a explicar el contenido de la página en los resultados de búsqueda.";
-
-      fix =
-        "Escribe una descripción única y atractiva que explique claramente qué ofrece la página.";
-
-    }
-
-
-    else if (text.includes("h1")) {
-
-      reason =
-        "El H1 ayuda a establecer el tema principal del contenido.";
-
-      fix =
-        "Utiliza un único H1 principal y haz que describa claramente el contenido de la página.";
-
-    }
-
-
-    else if (text.includes("https")) {
-
-      reason =
-        "HTTPS protege la conexión y forma parte de la configuración técnica básica de una web.";
-
-      fix =
-        "Instala o activa un certificado SSL y fuerza la versión HTTPS de la web.";
-
-    }
-
-
-    else if (text.includes("canonical")) {
-
-      reason =
-        "La canonical ayuda a los buscadores a identificar la versión principal de una URL.";
-
-      fix =
-        "Añade una etiqueta rel=\"canonical\" apuntando a la URL principal de la página.";
-
-    }
-
-
-    else if (text.includes("viewport")) {
-
-      reason =
-        "La configuración viewport es importante para una correcta visualización móvil.";
-
-      fix =
-        "Añade la etiqueta meta viewport estándar dentro del <head>.";
-
-    }
-
-
-    else if (text.includes("robots")) {
-
-      reason =
-        "La configuración robots puede afectar a cómo los buscadores rastrean la página.";
-
-      fix =
-        "Comprueba que robots.txt exista, sea accesible y no bloquee accidentalmente páginas importantes.";
-
-    }
-
-
-    else if (text.includes("schema")) {
-
-      reason =
-        "Los datos estructurados ayudan a los buscadores a interpretar determinados tipos de contenido.";
-
-      fix =
-        "Añade Schema.org en formato JSON-LD cuando exista un tipo de marcado relevante.";
-
-      impact = "Medio";
-
-    }
-
-
-    else if (text.includes("alt")) {
-
-      reason =
-        "El texto ALT ayuda a describir las imágenes.";
-
-      fix =
-        "Añade atributos ALT descriptivos a las imágenes relevantes.";
-
-    }
-
-
-    addAction(
-      "high",
-      issue,
-      reason,
-      fix,
-      impact,
-      "SEO"
-    );
-
-  });
+  );
 
 
   /* =====================================================
@@ -1191,7 +1179,7 @@ function buildActionPlan(
 
 
   /* =====================================================
-     META DESCRIPTION
+     DESCRIPTION
   ===================================================== */
 
   const descriptionLength =
@@ -1296,7 +1284,7 @@ function buildActionPlan(
 
 
   /* =====================================================
-     IMÁGENES ALT
+     IMÁGENES
   ===================================================== */
 
   const imagesWithoutAlt =
@@ -1345,39 +1333,53 @@ function buildActionPlan(
 
   (seo.keywordRecommendations || [])
     .slice(0, 5)
-    .forEach((recommendation) => {
+    .forEach(
+      recommendation => {
 
-      let keyword = "";
+        let keyword = "";
 
-      if (typeof recommendation === "string") {
 
-        keyword = recommendation;
+        if (
+          typeof recommendation ===
+          "string"
+        ) {
 
-      } else {
+          keyword =
+            recommendation;
 
-        keyword =
-          recommendation.keyword ||
-          recommendation.term ||
-          "";
+        }
+
+        else if (
+          recommendation &&
+          typeof recommendation ===
+          "object"
+        ) {
+
+          keyword =
+            recommendation.keyword ||
+            recommendation.term ||
+            recommendation.text ||
+            "";
+
+        }
+
+
+        if (!keyword) {
+          return;
+        }
+
+
+        addAction(
+          "medium",
+          `Trabajar la keyword "${keyword}"`,
+          "El análisis de contenido ha detectado una oportunidad relacionada con esta temática.",
+          `Integra "${keyword}" de forma natural en títulos, encabezados, contenido y enlaces internos cuando sea relevante.`,
+          "Medio",
+          "Keywords"
+        );
 
       }
-
-
-      if (!keyword) {
-        return;
-      }
-
-
-      addAction(
-        "medium",
-        `Trabajar la keyword "${keyword}"`,
-        "El análisis de contenido ha detectado una oportunidad relacionada con esta temática.",
-        `Integra "${keyword}" de forma natural en títulos, encabezados, contenido y enlaces internos cuando sea relevante.`,
-        "Medio",
-        "Keywords"
-      );
-
-    });
+    );
 
 
   /* =====================================================
@@ -1394,27 +1396,29 @@ function buildActionPlan(
 
     competitorAnalysis.opportunities
       .slice(0, 10)
-      .forEach((opportunity) => {
+      .forEach(
+        opportunity => {
 
-        if (!opportunity.keyword) {
-          return;
+          if (!opportunity.keyword) {
+            return;
+          }
+
+
+          const competitorCount =
+            opportunity.competitorCount || 1;
+
+
+          addAction(
+            "opportunity",
+            `Atacar la keyword "${opportunity.keyword}"`,
+            `${competitorCount} competidor${competitorCount > 1 ? "es" : ""} analizado${competitorCount > 1 ? "s" : ""} aparece${competitorCount > 1 ? "n" : ""} para esta temática y tu web no la está trabajando actualmente.`,
+            `Crea o mejora una página relevante para "${opportunity.keyword}". Comprueba primero la intención de búsqueda.`,
+            "Oportunidad",
+            "Competitor Gap"
+          );
+
         }
-
-
-        const competitorCount =
-          opportunity.competitorCount || 1;
-
-
-        addAction(
-          "opportunity",
-          `Atacar la keyword "${opportunity.keyword}"`,
-          `${competitorCount} competidor${competitorCount > 1 ? "es" : ""} analizado${competitorCount > 1 ? "s" : ""} aparece${competitorCount > 1 ? "n" : ""} para esta temática y tu web no la está trabajando actualmente.`,
-          `Crea o mejora una página relevante para "${opportunity.keyword}". Comprueba primero la intención de búsqueda.`,
-          "Oportunidad",
-          "Competitor Gap"
-        );
-
-      });
+      );
 
   }
 
@@ -1461,7 +1465,7 @@ function buildActionPlan(
 
 
   technicalChecks.forEach(
-    (check) => {
+    check => {
 
       if (seo[check.key] === false) {
 
@@ -1487,13 +1491,9 @@ function buildActionPlan(
   ===================================================== */
 
   const priorityOrder = {
-
     high: 1,
-
     medium: 2,
-
     opportunity: 3
-
   };
 
 
@@ -1505,19 +1505,18 @@ function buildActionPlan(
 
 
   /* =====================================================
-     ELIMINAR DUPLICADOS
+     DUPLICADOS
   ===================================================== */
 
   const unique = [];
-
   const seen = new Set();
 
 
   actions.forEach(
-    (action) => {
+    action => {
 
       const key =
-        action.title
+        String(action.title)
           .toLowerCase()
           .trim();
 
@@ -1525,7 +1524,6 @@ function buildActionPlan(
       if (!seen.has(key)) {
 
         seen.add(key);
-
         unique.push(action);
 
       }
@@ -1537,6 +1535,10 @@ function buildActionPlan(
   return unique.slice(0, 30);
 }
 
+
+/* =========================================================
+   ACTION CARD
+========================================================= */
 
 function renderActionCard(
   action,
@@ -1651,14 +1653,26 @@ function renderKeywordIntelligence(seo) {
 
 
   if (!keywords.length) {
-
     return "";
-
   }
 
 
+  /*
+    IMPORTANTE:
+    primaryKeyword puede ser:
+    - string
+    - objeto
+    - null
+    - undefined
+
+    Lo normalizamos aquí para evitar
+    errores con .toLowerCase()
+  */
+
   const primary =
-    seo.primaryKeyword || "";
+    normalizeKeyword(
+      seo.primaryKeyword
+    );
 
 
   return `
@@ -1691,7 +1705,9 @@ function renderKeywordIntelligence(seo) {
           </span>
 
           <strong>
-            ${escapeHtml(primary || "No detectada")}
+            ${escapeHtml(
+              primary || "No detectada"
+            )}
           </strong>
 
         </div>
@@ -1742,28 +1758,26 @@ function renderKeywordIntelligence(seo) {
             ${keywords
               .slice(0, 20)
               .map(
-                (item) => {
+                item => {
 
                   const keyword =
-                    typeof item === "string"
-                      ? item
-                      : item.keyword || "";
+                    normalizeKeyword(item);
+
 
                   const count =
-                    typeof item === "object"
-                      ? item.count ||
-                        item.frequency ||
-                        0
-                      : 0;
+                    getKeywordCount(item);
+
 
                   return `
 
                     <tr>
 
                       <td>
+
                         <strong>
                           ${escapeHtml(keyword)}
                         </strong>
+
                       </td>
 
                       <td>
@@ -1771,12 +1785,16 @@ function renderKeywordIntelligence(seo) {
                       </td>
 
                       <td>
+
                         <span class="keyword-badge">
+
                           ${getKeywordTypeLabel(
                             keyword,
                             primary
                           )}
+
                         </span>
+
                       </td>
 
                     </tr>
@@ -1796,6 +1814,104 @@ function renderKeywordIntelligence(seo) {
     </section>
 
   `;
+}
+
+
+/* =========================================================
+   NORMALIZAR KEYWORD
+========================================================= */
+
+function normalizeKeyword(value) {
+
+  if (
+    typeof value === "string"
+  ) {
+
+    return value.trim();
+
+  }
+
+
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+
+    return String(
+      value.keyword ||
+      value.term ||
+      value.text ||
+      value.name ||
+      ""
+    ).trim();
+
+  }
+
+
+  return String(
+    value || ""
+  ).trim();
+
+}
+
+
+/* =========================================================
+   KEYWORD COUNT
+========================================================= */
+
+function getKeywordCount(item) {
+
+  if (
+    item &&
+    typeof item === "object"
+  ) {
+
+    return Number(
+      item.count ||
+      item.frequency ||
+      item.occurrences ||
+      item.appearances ||
+      0
+    );
+
+  }
+
+
+  return 0;
+}
+
+
+/* =========================================================
+   KEYWORD TYPE
+========================================================= */
+
+function getKeywordTypeLabel(
+  keyword,
+  primary
+) {
+
+  const keywordText =
+    normalizeKeyword(keyword)
+      .toLowerCase();
+
+
+  const primaryText =
+    normalizeKeyword(primary)
+      .toLowerCase();
+
+
+  if (
+    primaryText &&
+    keywordText &&
+    keywordText === primaryText
+  ) {
+
+    return "Principal";
+
+  }
+
+
+  return "Relevante";
 }
 
 
@@ -1844,21 +1960,30 @@ function renderKeywordRecommendations(seo) {
         ${recommendations
           .slice(0, 12)
           .map(
-            (recommendation) => {
+            recommendation => {
 
               const keyword =
-                typeof recommendation === "string"
-                  ? recommendation
-                  : recommendation.keyword ||
-                    recommendation.term ||
-                    "";
+                normalizeKeyword(
+                  recommendation
+                );
 
-              const reason =
-                typeof recommendation === "object"
-                  ? recommendation.reason ||
-                    recommendation.recommendation ||
-                    "Keyword relevante detectada en el contenido."
-                  : "Keyword relevante detectada en el contenido.";
+
+              let reason =
+                "Keyword relevante detectada en el contenido.";
+
+
+              if (
+                recommendation &&
+                typeof recommendation ===
+                "object"
+              ) {
+
+                reason =
+                  recommendation.reason ||
+                  recommendation.recommendation ||
+                  reason;
+
+              }
 
 
               return `
@@ -1999,28 +2124,29 @@ function renderCompetitorCTA() {
 
 
 /* =========================================================
-   ABRIR FORMULARIO COMPETIDORES
+   OPEN COMPETITOR FORM
 ========================================================= */
 
 function openCompetitorForm() {
 
-  const form =
+  const competitorForm =
     document.getElementById(
       "competitorForm"
     );
 
 
-  if (!form) {
+  if (!competitorForm) {
     return;
   }
 
 
-  form.style.display = "block";
+  competitorForm.style.display =
+    "block";
 
 
   setTimeout(() => {
 
-    form.scrollIntoView({
+    competitorForm.scrollIntoView({
       behavior: "smooth",
       block: "center"
     });
@@ -2031,7 +2157,7 @@ function openCompetitorForm() {
 
 
 /* =========================================================
-   EJECUTAR COMPETIDORES
+   RUN COMPETITOR ANALYSIS
 ========================================================= */
 
 async function runCompetitorAnalysis() {
@@ -2043,12 +2169,13 @@ async function runCompetitorAnalysis() {
   ];
 
 
-  let competitors = inputs
-    .filter(Boolean)
-    .map(
-      input => input.value.trim()
-    )
-    .filter(Boolean);
+  let competitors =
+    inputs
+      .filter(Boolean)
+      .map(
+        input => input.value.trim()
+      )
+      .filter(Boolean);
 
 
   if (!competitors.length) {
@@ -2063,11 +2190,15 @@ async function runCompetitorAnalysis() {
 
 
   competitors =
-    competitors.map(normalizeUrl);
+    competitors.map(
+      normalizeUrl
+    );
 
 
   const mainNormalized =
-    normalizeUrl(currentMainUrl);
+    normalizeUrl(
+      currentMainUrl
+    );
 
 
   competitors =
@@ -2098,7 +2229,7 @@ async function runCompetitorAnalysis() {
 
 
 /* =========================================================
-   COMPETITOR RESULTS
+   COMPETITOR ANALYSIS RESULTS
 ========================================================= */
 
 function renderCompetitorAnalysis(
@@ -2164,7 +2295,8 @@ function renderCompetitorAnalysis(
 
           <p>
             Comparación de tu web frente a
-            ${competitorList.length} competidor${competitorList.length > 1 ? "es" : ""}.
+            ${competitorList.length}
+            competidor${competitorList.length > 1 ? "es" : ""}.
           </p>
 
         </div>
@@ -2185,7 +2317,8 @@ function renderCompetitorAnalysis(
                   ? currentData.competitors[index]
                   : null;
 
-              const seo =
+
+              const competitorSeo =
                 result?.seo || null;
 
 
@@ -2212,13 +2345,15 @@ function renderCompetitorAnalysis(
 
 
                   ${
-                    seo
+                    competitorSeo
                       ? `
 
                         <div class="competitor-score">
 
                           <strong>
-                            ${Number(seo.score || 0)}
+                            ${Number(
+                              competitorSeo.score || 0
+                            )}
                           </strong>
 
                           <span>
@@ -2308,7 +2443,7 @@ function renderCompetitorAnalysis(
                     ${opportunities
                       .slice(0, 20)
                       .map(
-                        (item) => `
+                        item => `
 
                           <tr>
 
@@ -2371,7 +2506,7 @@ function renderCompetitorAnalysis(
       </div>
 
 
-      <!-- SHARED -->
+      <!-- SHARED KEYWORDS -->
 
       ${
         sharedKeywords.length
@@ -2426,16 +2561,18 @@ function renderCompetitorAnalysis(
                     ${sharedKeywords
                       .slice(0, 20)
                       .map(
-                        (item) => `
+                        item => `
 
                           <tr>
 
                             <td>
+
                               <strong>
                                 ${escapeHtml(
                                   item.keyword
                                 )}
                               </strong>
+
                             </td>
 
                             <td>
@@ -2456,16 +2593,20 @@ function renderCompetitorAnalysis(
                                 Number(
                                   item.difference || 0
                                 ) >= 0
-                                  ? `<span class="keyword-positive">
+                                  ? `
+                                    <span class="keyword-positive">
                                       +${Number(
                                         item.difference || 0
                                       )}
-                                    </span>`
-                                  : `<span class="keyword-negative">
+                                    </span>
+                                  `
+                                  : `
+                                    <span class="keyword-negative">
                                       ${Number(
                                         item.difference || 0
                                       )}
-                                    </span>`
+                                    </span>
+                                  `
                               }
 
                             </td>
@@ -2489,7 +2630,7 @@ function renderCompetitorAnalysis(
       }
 
 
-      <!-- UNIQUE -->
+      <!-- UNIQUE KEYWORDS -->
 
       ${
         uniqueKeywords.length
@@ -2515,7 +2656,7 @@ function renderCompetitorAnalysis(
                 ${uniqueKeywords
                   .slice(0, 30)
                   .map(
-                    (item) => `
+                    item => `
 
                       <span class="keyword-chip">
 
@@ -2559,7 +2700,8 @@ function categoryCard(
   description
 ) {
 
-  score = Number(score || 0);
+  score =
+    Number(score || 0);
 
 
   const status =
@@ -2667,11 +2809,9 @@ function technicalItem(
         ${passed ? "✓" : "!"}
       </span>
 
-
       <strong>
         ${escapeHtml(name)}
       </strong>
-
 
       <span>
         ${passed ? "Correcto" : "Revisar"}
@@ -2684,7 +2824,7 @@ function technicalItem(
 
 
 /* =========================================================
-   FIX
+   SHOW FIX
 ========================================================= */
 
 function showFix(button) {
@@ -2707,12 +2847,13 @@ function showFix(button) {
 
 
 /* =========================================================
-   SCORE STATUS
+   STATUS
 ========================================================= */
 
 function getStatus(score) {
 
-  score = Number(score || 0);
+  score =
+    Number(score || 0);
 
 
   if (score >= 80) {
@@ -2730,12 +2871,13 @@ function getStatus(score) {
 
 
 /* =========================================================
-   SCORE LABEL
+   LABEL
 ========================================================= */
 
 function getLabel(score) {
 
-  score = Number(score || 0);
+  score =
+    Number(score || 0);
 
 
   if (score >= 90) {
@@ -2758,38 +2900,13 @@ function getLabel(score) {
 
 
 /* =========================================================
-   KEYWORD TYPE
-========================================================= */
-
-function getKeywordTypeLabel(
-  keyword,
-  primary
-) {
-
-  if (
-    primary &&
-    keyword.toLowerCase() ===
-      primary.toLowerCase()
-  ) {
-
-    return "Principal";
-
-  }
-
-
-  return "Relevante";
-}
-
-
-/* =========================================================
    NORMALIZE URL
 ========================================================= */
 
 function normalizeUrl(url) {
 
   let normalized =
-    String(url || "")
-      .trim();
+    String(url || "").trim();
 
 
   if (!/^https?:\/\//i.test(normalized)) {
@@ -2866,7 +2983,7 @@ function escapeHtml(value) {
 
 
 /* =========================================================
-   ESTILOS
+   ESTILOS EXTRA
 ========================================================= */
 
 function injectGlobalStyles() {
@@ -2892,29 +3009,22 @@ function injectGlobalStyles() {
 
   style.textContent = `
 
-    /* =====================================================
-       ACTION PLAN
-    ===================================================== */
+    /* ACTION PLAN */
 
     .action-plan-section {
       margin-top: 42px;
       margin-bottom: 42px;
     }
 
-
-    .action-plan-section
-    .section-title {
+    .action-plan-section .section-title {
       margin-bottom: 20px;
     }
 
-
-    .action-plan-section
-    .section-title p {
+    .action-plan-section .section-title p {
       margin-top: 7px;
       color: #8b8f98;
       font-size: 14px;
     }
-
 
     .action-summary {
       display: grid;
@@ -2923,7 +3033,6 @@ function injectGlobalStyles() {
       gap: 14px;
       margin-bottom: 28px;
     }
-
 
     .action-summary-card {
       padding: 20px;
@@ -2934,7 +3043,6 @@ function injectGlobalStyles() {
         rgba(255,255,255,.025);
     }
 
-
     .action-summary-card strong {
       display: block;
       font-size: 30px;
@@ -2942,37 +3050,30 @@ function injectGlobalStyles() {
       margin-bottom: 8px;
     }
 
-
     .action-summary-card span {
       color: #9297a2;
       font-size: 13px;
     }
 
-
     .action-summary-card.high strong {
       color: #ff6b6b;
     }
-
 
     .action-summary-card.medium strong {
       color: #f3c969;
     }
 
-
     .action-summary-card.opportunity strong {
       color: #66d99a;
     }
-
 
     .action-summary-card.total strong {
       color: #ffffff;
     }
 
-
     .action-group {
       margin-bottom: 26px;
     }
-
 
     .action-group-header {
       padding: 17px 20px;
@@ -2984,23 +3085,19 @@ function injectGlobalStyles() {
         rgba(255,255,255,.025);
     }
 
-
     .action-group-header > div {
       display: flex;
       align-items: center;
       gap: 13px;
     }
 
-
     .action-group-icon {
       font-size: 19px;
     }
 
-
     .action-group-header strong {
       font-size: 15px;
     }
-
 
     .action-group-header p {
       margin: 4px 0 0;
@@ -3008,13 +3105,11 @@ function injectGlobalStyles() {
       font-size: 12px;
     }
 
-
     .action-list {
       display: flex;
       flex-direction: column;
       gap: 1px;
     }
-
 
     .action-card {
       display: flex;
@@ -3027,12 +3122,9 @@ function injectGlobalStyles() {
       border-top: 0;
     }
 
-
     .action-card:last-child {
-      border-radius:
-        0 0 16px 16px;
+      border-radius: 0 0 16px 16px;
     }
-
 
     .action-number {
       flex: 0 0 34px;
@@ -3048,12 +3140,10 @@ function injectGlobalStyles() {
       font-size: 13px;
     }
 
-
     .action-main {
       flex: 1;
       min-width: 0;
     }
-
 
     .action-card-top {
       display: flex;
@@ -3061,7 +3151,6 @@ function injectGlobalStyles() {
       justify-content: space-between;
       gap: 20px;
     }
-
 
     .action-category {
       display: inline-block;
@@ -3073,14 +3162,12 @@ function injectGlobalStyles() {
       color: #858a96;
     }
 
-
     .action-card h3 {
       margin: 0;
       color: #fff;
       font-size: 16px;
       line-height: 1.35;
     }
-
 
     .action-priority {
       flex-shrink: 0;
@@ -3091,13 +3178,11 @@ function injectGlobalStyles() {
       letter-spacing: .07em;
     }
 
-
     .action-priority.high {
       background:
         rgba(255,107,107,.12);
       color: #ff8585;
     }
-
 
     .action-priority.medium {
       background:
@@ -3105,13 +3190,11 @@ function injectGlobalStyles() {
       color: #f3c969;
     }
 
-
     .action-priority.opportunity {
       background:
         rgba(102,217,154,.12);
       color: #66d99a;
     }
-
 
     .action-detail {
       display: grid;
@@ -3126,7 +3209,6 @@ function injectGlobalStyles() {
         1px solid rgba(255,255,255,.06);
     }
 
-
     .action-detail-block span,
     .action-impact span {
       display: block;
@@ -3137,7 +3219,6 @@ function injectGlobalStyles() {
       letter-spacing: .08em;
     }
 
-
     .action-detail-block p {
       margin: 0;
       color: #aeb2bb;
@@ -3145,33 +3226,27 @@ function injectGlobalStyles() {
       line-height: 1.6;
     }
 
-
     .action-impact {
       padding-left: 18px;
       border-left:
         1px solid rgba(255,255,255,.07);
     }
 
-
     .action-impact strong {
       font-size: 14px;
     }
-
 
     .action-impact strong.high {
       color: #ff8585;
     }
 
-
     .action-impact strong.medium {
       color: #f3c969;
     }
 
-
     .action-impact strong.opportunity {
       color: #66d99a;
     }
-
 
     .action-empty {
       padding: 45px 20px;
@@ -3183,17 +3258,14 @@ function injectGlobalStyles() {
         rgba(255,255,255,.02);
     }
 
-
     .action-empty > div {
       font-size: 30px;
       margin-bottom: 10px;
     }
 
-
     .action-empty strong {
       color: #fff;
     }
-
 
     .action-empty p {
       color: #858a96;
@@ -3202,16 +3274,13 @@ function injectGlobalStyles() {
     }
 
 
-    /* =====================================================
-       COMPETITOR
-    ===================================================== */
+    /* COMPETITOR */
 
     .competitor-section,
     .competitor-results {
       margin-top: 38px;
       margin-bottom: 38px;
     }
-
 
     .competitor-cta {
       display: flex;
@@ -3230,7 +3299,6 @@ function injectGlobalStyles() {
         );
     }
 
-
     .competitor-label,
     .competitor-card-top span,
     .competitor-subtitle span {
@@ -3241,20 +3309,17 @@ function injectGlobalStyles() {
       letter-spacing: .1em;
     }
 
-
     .competitor-cta h2 {
       margin: 7px 0;
       color: #fff;
       font-size: 21px;
     }
 
-
     .competitor-cta p {
       margin: 0;
       color: #9095a0;
       font-size: 13px;
     }
-
 
     .competitor-button,
     .competitor-run-button {
@@ -3267,7 +3332,6 @@ function injectGlobalStyles() {
       cursor: pointer;
     }
 
-
     .competitor-form {
       margin-top: 12px;
       padding: 25px;
@@ -3278,11 +3342,9 @@ function injectGlobalStyles() {
         rgba(255,255,255,.02);
     }
 
-
     .competitor-form-header {
       margin-bottom: 18px;
     }
-
 
     .competitor-form-header span {
       color: #7e8490;
@@ -3291,13 +3353,11 @@ function injectGlobalStyles() {
       letter-spacing: .1em;
     }
 
-
     .competitor-form-header h3 {
       margin: 7px 0 0;
       color: #fff;
       font-size: 16px;
     }
-
 
     .competitor-inputs {
       display: grid;
@@ -3306,7 +3366,6 @@ function injectGlobalStyles() {
       gap: 10px;
       margin-bottom: 14px;
     }
-
 
     .competitor-inputs input {
       width: 100%;
@@ -3321,11 +3380,9 @@ function injectGlobalStyles() {
       outline: none;
     }
 
-
     .competitor-run-button {
       width: 100%;
     }
-
 
     .competitor-cards {
       display: grid;
@@ -3334,7 +3391,6 @@ function injectGlobalStyles() {
       gap: 14px;
       margin-bottom: 30px;
     }
-
 
     .competitor-card {
       padding: 20px;
@@ -3345,7 +3401,6 @@ function injectGlobalStyles() {
         rgba(255,255,255,.025);
     }
 
-
     .competitor-card-top strong {
       display: block;
       margin-top: 7px;
@@ -3354,7 +3409,6 @@ function injectGlobalStyles() {
       word-break: break-all;
     }
 
-
     .competitor-score {
       display: flex;
       align-items: baseline;
@@ -3362,35 +3416,29 @@ function injectGlobalStyles() {
       margin-top: 20px;
     }
 
-
     .competitor-score strong {
       color: #fff;
       font-size: 34px;
     }
-
 
     .competitor-score span {
       color: #858a96;
       font-size: 12px;
     }
 
-
     .competitor-subsection {
       margin-top: 28px;
     }
 
-
     .competitor-subtitle {
       margin-bottom: 15px;
     }
-
 
     .competitor-subtitle h3 {
       margin: 7px 0 4px;
       color: #fff;
       font-size: 17px;
     }
-
 
     .competitor-subtitle p {
       margin: 0;
@@ -3399,6 +3447,109 @@ function injectGlobalStyles() {
     }
 
 
+    /* KEYWORDS */
+
+    .keyword-section,
+    .keyword-recommendations {
+      margin-top: 38px;
+      margin-bottom: 38px;
+    }
+
+    .keyword-dashboard {
+      display: grid;
+      grid-template-columns:
+        2fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .keyword-primary,
+    .keyword-count {
+      padding: 22px;
+      border:
+        1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      background:
+        rgba(255,255,255,.025);
+    }
+
+    .keyword-primary span {
+      display: block;
+      color: #737985;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      margin-bottom: 8px;
+    }
+
+    .keyword-primary strong {
+      color: #fff;
+      font-size: 22px;
+    }
+
+    .keyword-count {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .keyword-count strong {
+      color: #fff;
+      font-size: 28px;
+    }
+
+    .keyword-count span {
+      margin-top: 4px;
+      color: #858a96;
+      font-size: 12px;
+    }
+
+    .recommendation-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .recommendation-card {
+      display: flex;
+      gap: 13px;
+      padding: 18px;
+      border:
+        1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      background:
+        rgba(255,255,255,.02);
+    }
+
+    .recommendation-icon {
+      flex: 0 0 30px;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background:
+        rgba(255,255,255,.07);
+      color: #fff;
+    }
+
+    .recommendation-card strong {
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .recommendation-card p {
+      margin: 5px 0 0;
+      color: #858a96;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+
+    /* TABLE */
+
     .keyword-table-wrapper {
       overflow-x: auto;
       border:
@@ -3406,13 +3557,11 @@ function injectGlobalStyles() {
       border-radius: 15px;
     }
 
-
     .keyword-table {
       width: 100%;
       border-collapse: collapse;
       min-width: 600px;
     }
-
 
     .keyword-table th {
       padding: 13px 15px;
@@ -3425,7 +3574,6 @@ function injectGlobalStyles() {
         1px solid rgba(255,255,255,.07);
     }
 
-
     .keyword-table td {
       padding: 14px 15px;
       color: #aeb2bb;
@@ -3434,16 +3582,13 @@ function injectGlobalStyles() {
         1px solid rgba(255,255,255,.05);
     }
 
-
     .keyword-table tr:last-child td {
       border-bottom: 0;
     }
 
-
     .keyword-table td strong {
       color: #fff;
     }
-
 
     .keyword-badge,
     .opportunity-badge {
@@ -3456,30 +3601,25 @@ function injectGlobalStyles() {
       font-size: 10px;
     }
 
-
     .opportunity-badge {
       color: #66d99a;
       background:
         rgba(102,217,154,.1);
     }
 
-
     .keyword-positive {
       color: #66d99a;
     }
 
-
     .keyword-negative {
       color: #ff8585;
     }
-
 
     .keyword-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
-
 
     .keyword-chip {
       display: inline-flex;
@@ -3495,130 +3635,12 @@ function injectGlobalStyles() {
       font-size: 12px;
     }
 
-
     .keyword-chip small {
       color: #858a96;
     }
 
 
-    /* =====================================================
-       KEYWORD INTELLIGENCE
-    ===================================================== */
-
-    .keyword-section,
-    .keyword-recommendations {
-      margin-top: 38px;
-      margin-bottom: 38px;
-    }
-
-
-    .keyword-dashboard {
-      display: grid;
-      grid-template-columns:
-        2fr 1fr;
-      gap: 14px;
-      margin-bottom: 18px;
-    }
-
-
-    .keyword-primary,
-    .keyword-count {
-      padding: 22px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background:
-        rgba(255,255,255,.025);
-    }
-
-
-    .keyword-primary span {
-      display: block;
-      color: #737985;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      margin-bottom: 8px;
-    }
-
-
-    .keyword-primary strong {
-      color: #fff;
-      font-size: 22px;
-    }
-
-
-    .keyword-count {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-
-    .keyword-count strong {
-      color: #fff;
-      font-size: 28px;
-    }
-
-
-    .keyword-count span {
-      margin-top: 4px;
-      color: #858a96;
-      font-size: 12px;
-    }
-
-
-    .recommendation-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-
-    .recommendation-card {
-      display: flex;
-      gap: 13px;
-      padding: 18px;
-      border:
-        1px solid rgba(255,255,255,.07);
-      border-radius: 14px;
-      background:
-        rgba(255,255,255,.02);
-    }
-
-
-    .recommendation-icon {
-      flex: 0 0 30px;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      background:
-        rgba(255,255,255,.07);
-      color: #fff;
-    }
-
-
-    .recommendation-card strong {
-      color: #fff;
-      font-size: 13px;
-    }
-
-
-    .recommendation-card p {
-      margin: 5px 0 0;
-      color: #858a96;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-
-    /* =====================================================
-       RESPONSIVE
-    ===================================================== */
+    /* RESPONSIVE */
 
     @media (max-width: 900px) {
 
@@ -3627,11 +3649,9 @@ function injectGlobalStyles() {
           repeat(2, minmax(0, 1fr));
       }
 
-
       .action-detail {
         grid-template-columns: 1fr;
       }
-
 
       .action-impact {
         padding-left: 0;
@@ -3641,23 +3661,19 @@ function injectGlobalStyles() {
           1px solid rgba(255,255,255,.07);
       }
 
-
       .competitor-inputs,
       .competitor-cards {
         grid-template-columns: 1fr;
       }
-
 
       .competitor-cta {
         flex-direction: column;
         align-items: flex-start;
       }
 
-
       .keyword-dashboard {
         grid-template-columns: 1fr;
       }
-
 
       .recommendation-grid {
         grid-template-columns: 1fr;
@@ -3673,12 +3689,10 @@ function injectGlobalStyles() {
           repeat(2, minmax(0, 1fr));
       }
 
-
       .action-card {
         padding: 17px;
         gap: 12px;
       }
-
 
       .action-number {
         flex-basis: 28px;
@@ -3686,12 +3700,10 @@ function injectGlobalStyles() {
         height: 28px;
       }
 
-
       .action-card-top {
         flex-direction: column;
         gap: 10px;
       }
-
 
       .competitor-button {
         width: 100%;
@@ -3708,7 +3720,7 @@ function injectGlobalStyles() {
 
 
 /* =========================================================
-   GLOBAL FUNCTIONS
+   FUNCIONES GLOBALES
 ========================================================= */
 
 window.showFix =
@@ -3719,5 +3731,4 @@ window.openCompetitorForm =
 
 window.runCompetitorAnalysis =
   runCompetitorAnalysis;
-
 
