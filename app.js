@@ -26,7 +26,7 @@ form.addEventListener("submit", async (event) => {
     <div class="seo-loading">
       <div class="loading-spinner"></div>
       <h3>Analizando ${escapeHtml(url)}</h3>
-      <p>Revisando SEO técnico, contenido, palabras clave e indexabilidad...</p>
+      <p>Revisando SEO técnico, contenido e indexabilidad...</p>
     </div>
   `;
 
@@ -38,7 +38,9 @@ form.addEventListener("submit", async (event) => {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || "No se pudo analizar la web.");
+      throw new Error(
+        data.error || "No se pudo analizar la web."
+      );
     }
 
     const seo = data.seo;
@@ -46,6 +48,12 @@ form.addEventListener("submit", async (event) => {
 
     const keywords = Array.isArray(seo.keywords)
       ? seo.keywords
+      : [];
+
+    const keywordRecommendations = Array.isArray(
+      seo.keywordRecommendations
+    )
+      ? seo.keywordRecommendations
       : [];
 
     const getStatus = (score) => {
@@ -69,10 +77,13 @@ form.addEventListener("submit", async (event) => {
       ? seo.warnings.length
       : 0;
 
-    const primaryKeyword =
-      keywords.find((keyword) => keyword.type === "primary") ||
-      keywords[0] ||
-      null;
+    let hostname = "";
+
+    try {
+      hostname = new URL(data.finalUrl || url).hostname;
+    } catch {
+      hostname = url;
+    }
 
     message.innerHTML = `
       <div class="seo-dashboard">
@@ -82,18 +93,25 @@ form.addEventListener("submit", async (event) => {
         <div class="results-header">
 
           <div>
-            <span class="results-label">ANÁLISIS SEO</span>
+            <span class="results-label">
+              ANÁLISIS SEO
+            </span>
 
             <h2>
-              ${escapeHtml(new URL(data.finalUrl).hostname)}
+              ${escapeHtml(hostname)}
             </h2>
 
-            <p>${escapeHtml(data.finalUrl)}</p>
+            <p>
+              ${escapeHtml(data.finalUrl || url)}
+            </p>
           </div>
 
           <button
             class="new-analysis"
-            onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
+            onclick="window.scrollTo({
+              top: 0,
+              behavior: 'smooth'
+            })"
           >
             ← Nuevo análisis
           </button>
@@ -116,13 +134,17 @@ form.addEventListener("submit", async (event) => {
 
           <div class="score-summary">
 
-            <span class="score-label">SEO SCORE</span>
+            <span class="score-label">
+              SEO SCORE
+            </span>
 
-            <h2>${getLabel(seo.score)}</h2>
+            <h2>
+              ${getLabel(seo.score)}
+            </h2>
 
             <p>
-              Tu página ha sido analizada en múltiples factores
-              técnicos, de contenido y palabras clave.
+              Tu página ha sido analizada en múltiples
+              factores técnicos y de contenido.
             </p>
 
             <div class="score-stats">
@@ -136,7 +158,11 @@ form.addEventListener("submit", async (event) => {
               </span>
 
               <span>
-                🟢 ${seo.passed.length} correctos
+                🟢 ${
+                  Array.isArray(seo.passed)
+                    ? seo.passed.length
+                    : 0
+                } correctos
               </span>
 
             </div>
@@ -197,47 +223,43 @@ form.addEventListener("submit", async (event) => {
 
         </div>
 
-        <div class="keyword-intelligence-card">
+        <div class="problems-card">
 
           <div class="keyword-summary">
 
-            <div class="keyword-summary-main">
+            <div class="metric-card">
 
-              <span class="keyword-summary-label">
-                PALABRA CLAVE PRINCIPAL
-              </span>
+              <span>Keyword principal</span>
 
-              ${
-                primaryKeyword
-                  ? `
-                    <strong>
-                      ${escapeHtml(primaryKeyword.keyword)}
-                    </strong>
+              <strong>
+                ${
+                  seo.primaryKeyword
+                    ? escapeHtml(seo.primaryKeyword.keyword)
+                    : "No detectada"
+                }
+              </strong>
 
-                    <p>
-                      Detectada en
-                      ${formatLocations(primaryKeyword.locations)}
-                    </p>
-                  `
-                  : `
-                    <strong>
-                      No detectada
-                    </strong>
-
-                    <p>
-                      RankPilot no ha encontrado una palabra clave
-                      principal clara.
-                    </p>
-                  `
-              }
+              <small>
+                ${
+                  seo.primaryKeyword
+                    ? `${seo.primaryKeyword.count} apariciones`
+                    : "Sin keyword principal clara"
+                }
+              </small>
 
             </div>
 
-            <div class="keyword-summary-stat">
+            <div class="metric-card">
 
-              <strong>${keywords.length}</strong>
+              <span>Keywords detectadas</span>
 
-              <span>keywords detectadas</span>
+              <strong>
+                ${seo.keywordCount || keywords.length}
+              </strong>
+
+              <small>
+                términos relevantes
+              </small>
 
             </div>
 
@@ -249,7 +271,7 @@ form.addEventListener("submit", async (event) => {
               ? `
                 <div class="keyword-list">
 
-                  <div class="keyword-list-header">
+                  <div class="keyword-row keyword-header">
 
                     <span>Keyword</span>
                     <span>Frecuencia</span>
@@ -261,37 +283,93 @@ form.addEventListener("submit", async (event) => {
 
                   ${keywords
                     .slice(0, 20)
-                    .map((keyword, index) =>
-                      keywordRow(keyword, index)
-                    )
+                    .map((keyword) => keywordRow(keyword))
                     .join("")}
 
                 </div>
-
-                ${
-                  keywords.length > 20
-                    ? `
-                      <div class="keyword-more">
-                        Mostrando las 20 keywords con mayor relevancia
-                        de ${keywords.length} detectadas.
-                      </div>
-                    `
-                    : ""
-                }
-
               `
               : `
-                <div class="keyword-empty">
+                <div class="empty-state">
+                  No se han detectado palabras clave
+                  suficientes.
+                </div>
+              `
+          }
 
-                  <strong>
-                    No se han detectado palabras clave relevantes.
-                  </strong>
+        </div>
 
-                  <p>
-                    Añade contenido textual y términos relacionados
-                    con el tema principal de la página.
-                  </p>
 
+        <!-- RECOMENDACIONES DE KEYWORDS -->
+
+        <div class="section-title">
+
+          <div>
+            <span>SEO ACTIONS</span>
+            <h2>Recomendaciones para mejorar</h2>
+          </div>
+
+        </div>
+
+        <div class="problems-card">
+
+          ${
+            keywordRecommendations.length
+              ? keywordRecommendations
+                  .map(
+                    (recommendation, index) => `
+                      <div class="problem ${
+                        recommendation.type === "critical"
+                          ? "critical"
+                          : "warning"
+                      }">
+
+                        <div class="problem-icon">
+                          ${index + 1}
+                        </div>
+
+                        <div class="problem-content">
+
+                          <strong>
+                            ${escapeHtml(
+                              recommendation.title ||
+                              "Recomendación SEO"
+                            )}
+                          </strong>
+
+                          <p>
+                            ${escapeHtml(
+                              recommendation.description ||
+                              ""
+                            )}
+                          </p>
+
+                          ${
+                            recommendation.action
+                              ? `
+                                <div
+                                  class="fix-content visible"
+                                >
+                                  <strong>
+                                    Acción:
+                                  </strong>
+                                  ${escapeHtml(
+                                    recommendation.action
+                                  )}
+                                </div>
+                              `
+                              : ""
+                          }
+
+                        </div>
+
+                      </div>
+                    `
+                  )
+                  .join("")
+              : `
+                <div class="empty-state">
+                  🎉 No hay recomendaciones específicas
+                  de keywords.
                 </div>
               `
           }
@@ -313,6 +391,7 @@ form.addEventListener("submit", async (event) => {
         <div class="problems-card">
 
           ${
+            Array.isArray(seo.issues) &&
             seo.issues.length
               ? seo.issues
                   .map(
@@ -330,8 +409,8 @@ form.addEventListener("submit", async (event) => {
                           </strong>
 
                           <p>
-                            Este problema puede afectar al rendimiento
-                            SEO de la página.
+                            Este problema puede afectar
+                            al rendimiento SEO de la página.
                           </p>
 
                         </div>
@@ -344,9 +423,10 @@ form.addEventListener("submit", async (event) => {
                         </button>
 
                         <div class="fix-content">
-                          Revisa este elemento y corrígelo en el código
-                          o CMS de tu página. Después vuelve a ejecutar
-                          el análisis para comprobar el resultado.
+                          Revisa este elemento y corrígelo
+                          en el código o CMS de tu página.
+                          Después vuelve a ejecutar el
+                          análisis para comprobar el resultado.
                         </div>
 
                       </div>
@@ -362,6 +442,7 @@ form.addEventListener("submit", async (event) => {
 
 
           ${
+            Array.isArray(seo.warnings) &&
             seo.warnings.length
               ? seo.warnings
                   .map(
@@ -379,8 +460,8 @@ form.addEventListener("submit", async (event) => {
                           </strong>
 
                           <p>
-                            Es una oportunidad para mejorar el SEO
-                            de esta página.
+                            Es una oportunidad para mejorar
+                            el SEO de esta página.
                           </p>
 
                         </div>
@@ -393,8 +474,9 @@ form.addEventListener("submit", async (event) => {
                         </button>
 
                         <div class="fix-content">
-                          Optimiza este elemento siguiendo las buenas
-                          prácticas SEO y vuelve a analizar la página.
+                          Optimiza este elemento siguiendo
+                          las buenas prácticas SEO y vuelve
+                          a analizar la página.
                         </div>
 
                       </div>
@@ -423,60 +505,60 @@ form.addEventListener("submit", async (event) => {
           ${metric(
             "Title",
             seo.title || "No encontrado",
-            seo.titleLength + " caracteres"
+            `${seo.titleLength || 0} caracteres`
           )}
 
           ${metric(
             "Meta Description",
             seo.description || "No encontrada",
-            seo.descriptionLength + " caracteres"
+            `${seo.descriptionLength || 0} caracteres`
           )}
 
           ${metric(
             "H1",
-            seo.h1Count,
+            seo.h1Count || 0,
             "etiquetas"
           )}
 
           ${metric(
             "H2",
-            seo.h2Count,
+            seo.h2Count || 0,
             "etiquetas"
           )}
 
           ${metric(
             "H3",
-            seo.h3Count,
+            seo.h3Count || 0,
             "etiquetas"
           )}
 
           ${metric(
             "Contenido",
-            seo.wordCount,
+            seo.wordCount || 0,
             "palabras"
           )}
 
           ${metric(
             "Imágenes",
-            seo.imageCount,
+            seo.imageCount || 0,
             "total"
           )}
 
           ${metric(
             "Imágenes sin ALT",
-            seo.imagesWithoutAlt,
+            seo.imagesWithoutAlt || 0,
             "sin atributo ALT"
           )}
 
           ${metric(
             "Enlaces internos",
-            seo.internalLinks,
+            seo.internalLinks || 0,
             "enlaces"
           )}
 
           ${metric(
             "Enlaces externos",
-            seo.externalLinks,
+            seo.externalLinks || 0,
             "enlaces"
           )}
 
@@ -554,7 +636,11 @@ form.addEventListener("submit", async (event) => {
               </strong>
 
               <p>
-                ${seo.passed.length} comprobaciones superadas
+                ${
+                  Array.isArray(seo.passed)
+                    ? seo.passed.length
+                    : 0
+                } comprobaciones superadas
               </p>
 
             </div>
@@ -563,15 +649,19 @@ form.addEventListener("submit", async (event) => {
 
           <div class="passed-list">
 
-            ${seo.passed
-              .map(
-                (item) => `
-                  <div>
-                    ✓ ${escapeHtml(item)}
-                  </div>
-                `
-              )
-              .join("")}
+            ${
+              Array.isArray(seo.passed)
+                ? seo.passed
+                    .map(
+                      (item) => `
+                        <div>
+                          ✓ ${escapeHtml(item)}
+                        </div>
+                      `
+                    )
+                    .join("")
+                : ""
+            }
 
           </div>
 
@@ -579,9 +669,7 @@ form.addEventListener("submit", async (event) => {
 
       </div>
     `;
-
   } catch (error) {
-
     console.error(error);
 
     message.innerHTML = `
@@ -600,10 +688,6 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-
-/* =========================================================
-   CATEGORY CARD
-========================================================= */
 
 function categoryCard(name, score, description) {
 
@@ -641,7 +725,10 @@ function categoryCard(name, score, description) {
 
         <div
           class="progress-fill ${status}"
-          style="width:${score}%"
+          style="width:${Math.max(
+            0,
+            Math.min(100, score)
+          )}%"
         ></div>
 
       </div>
@@ -650,10 +737,6 @@ function categoryCard(name, score, description) {
   `;
 }
 
-
-/* =========================================================
-   METRIC
-========================================================= */
 
 function metric(name, value, subtitle) {
 
@@ -669,7 +752,7 @@ function metric(name, value, subtitle) {
       </strong>
 
       <small>
-        ${escapeHtml(subtitle)}
+        ${escapeHtml(String(subtitle))}
       </small>
 
     </div>
@@ -677,17 +760,17 @@ function metric(name, value, subtitle) {
 }
 
 
-/* =========================================================
-   TECHNICAL ITEM
-========================================================= */
-
 function technicalItem(name, passed) {
 
   return `
     <div class="technical-item">
 
-      <span class="${passed ? "tech-good" : "tech-bad"}">
+      <span class="${
+        passed ? "tech-good" : "tech-bad"
+      }">
+
         ${passed ? "✓" : "!"}
+
       </span>
 
       <strong>
@@ -703,151 +786,99 @@ function technicalItem(name, passed) {
 }
 
 
-/* =========================================================
-   KEYWORD ROW
-========================================================= */
-
-function keywordRow(keyword, index) {
+function keywordRow(keyword) {
 
   const score = Number(keyword.score || 0);
-  const count = Number(keyword.count || 0);
 
-  const typeLabels = {
-    primary: "Principal",
-    title: "Title",
-    heading: "H1",
-    body: "Contenido"
-  };
-
-  const typeLabel =
-    typeLabels[keyword.type] || "Keyword";
-
-  const status =
+  const scoreClass =
     score >= 80
       ? "good"
       : score >= 60
       ? "warning"
       : "bad";
 
-  const locations =
-    Array.isArray(keyword.locations)
-      ? keyword.locations
-      : [];
-
   return `
     <div class="keyword-row">
 
-      <div class="keyword-name">
-
-        <span class="keyword-position">
-          ${index + 1}
-        </span>
-
+      <span>
         <strong>
           ${escapeHtml(keyword.keyword || "")}
         </strong>
+      </span>
 
-      </div>
+      <span>
+        ${keyword.count || 0}
+      </span>
 
-
-      <div class="keyword-frequency">
-
-        <strong>
-          ${count}
-        </strong>
-
-        <span>
-          ${count === 1 ? "vez" : "veces"}
-        </span>
-
-      </div>
-
-
-      <div class="keyword-score">
-
-        <span class="keyword-score-value ${status}">
+      <span>
+        <strong class="${scoreClass}">
           ${score}
-        </span>
+        </strong>
+      </span>
 
-      </div>
+      <span>
+        ${escapeHtml(
+          getKeywordTypeLabel(keyword.type)
+        )}
+      </span>
 
-
-      <div class="keyword-type">
-
-        <span class="keyword-type-badge ${keyword.type || ""}">
-          ${typeLabel}
-        </span>
-
-      </div>
-
-
-      <div class="keyword-locations">
-
-        ${formatLocations(locations)}
-
-      </div>
+      <span>
+        ${formatLocations(keyword.locations)}
+      </span>
 
     </div>
   `;
 }
 
 
-/* =========================================================
-   FORMAT LOCATIONS
-========================================================= */
+function getKeywordTypeLabel(type) {
+
+  const labels = {
+    primary: "Principal",
+    title: "Title",
+    heading: "Heading",
+    body: "Contenido"
+  };
+
+  return labels[type] || "Keyword";
+}
+
 
 function formatLocations(locations) {
 
   if (!Array.isArray(locations) || !locations.length) {
-    return `
-      <span class="keyword-location-empty">
-        Contenido
-      </span>
-    `;
+    return "Contenido";
   }
 
   const labels = {
     title: "Title",
-    description: "Meta",
+    description: "Description",
     h1: "H1",
+    h2: "H2",
     body: "Contenido"
   };
 
   return locations
-    .map((location) => {
-      const label =
-        labels[location] ||
-        location;
-
-      return `
-        <span class="keyword-location">
-          ${escapeHtml(label)}
-        </span>
-      `;
-    })
-    .join("");
+    .map(
+      (location) =>
+        labels[location] || location
+    )
+    .join(" · ");
 }
 
 
-/* =========================================================
-   SHOW FIX
-========================================================= */
-
 function showFix(button) {
 
-  const fix = button.parentElement.querySelector(
-    ".fix-content"
-  );
+  const fix =
+    button.parentElement.querySelector(
+      ".fix-content"
+    );
 
   if (fix) {
     fix.classList.toggle("visible");
   }
 }
 
-
-/* =========================================================
-   ESCAPE HTML
-========================================================= */
 
 function escapeHtml(value) {
 
