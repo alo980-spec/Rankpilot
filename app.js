@@ -7,307 +7,6 @@ const message = document.getElementById("analyzerMessage");
 
 
 /* =========================================================
-   COMPETITOR ANALYSIS — CONTROLES
-========================================================= */
-
-function createCompetitorControls() {
-  if (document.getElementById("rankpilotCompetitors")) return;
-
-  const wrapper = document.createElement("div");
-
-  wrapper.id = "rankpilotCompetitors";
-
-  wrapper.innerHTML = `
-    <div class="rp-competitor-box">
-
-      <div class="rp-competitor-header">
-        <div>
-          <span class="rp-small-label">COMPETITOR ANALYSIS</span>
-          <h3>Compara tu web con tus competidores</h3>
-          <p>
-            Añade hasta 3 webs para descubrir oportunidades de palabras clave.
-          </p>
-        </div>
-      </div>
-
-      <div class="rp-competitor-fields">
-
-        <div class="rp-competitor-field">
-          <span>01</span>
-          <input
-            type="text"
-            class="competitor-input"
-            placeholder="https://competidor1.com"
-          />
-        </div>
-
-        <div class="rp-competitor-field">
-          <span>02</span>
-          <input
-            type="text"
-            class="competitor-input"
-            placeholder="https://competidor2.com"
-          />
-        </div>
-
-        <div class="rp-competitor-field">
-          <span>03</span>
-          <input
-            type="text"
-            class="competitor-input"
-            placeholder="https://competidor3.com"
-          />
-        </div>
-
-      </div>
-
-      <div class="rp-competitor-help">
-        Los competidores son opcionales. Si los dejas vacíos,
-        RankPilot realizará únicamente el análisis SEO normal.
-      </div>
-
-    </div>
-  `;
-
-  /*
-    Intentamos colocar los campos antes del botón de análisis.
-  */
-
-  const submitButton = form.querySelector(
-    'button[type="submit"], input[type="submit"]'
-  );
-
-  if (submitButton) {
-    submitButton.insertAdjacentElement("beforebegin", wrapper);
-  } else {
-    form.appendChild(wrapper);
-  }
-
-  addCompetitorStyles();
-}
-
-
-/* =========================================================
-   ESTILOS COMPETITOR ANALYSIS
-========================================================= */
-
-function addCompetitorStyles() {
-  if (document.getElementById("rankpilotCompetitorStyles")) return;
-
-  const style = document.createElement("style");
-
-  style.id = "rankpilotCompetitorStyles";
-
-  style.textContent = `
-    .rp-competitor-box {
-      margin: 24px 0;
-      padding: 24px;
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 16px;
-      background: rgba(255,255,255,.025);
-    }
-
-    .rp-small-label {
-      display: block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .12em;
-      opacity: .6;
-      margin-bottom: 7px;
-    }
-
-    .rp-competitor-header h3 {
-      margin: 0 0 6px;
-      font-size: 20px;
-    }
-
-    .rp-competitor-header p {
-      margin: 0;
-      opacity: .65;
-      font-size: 14px;
-    }
-
-    .rp-competitor-fields {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .rp-competitor-field {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .rp-competitor-field > span {
-      min-width: 24px;
-      font-size: 11px;
-      opacity: .5;
-      font-weight: 700;
-    }
-
-    .rp-competitor-field input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.15);
-      color: inherit;
-      outline: none;
-    }
-
-    .rp-competitor-field input:focus {
-      border-color: rgba(255,255,255,.35);
-    }
-
-    .rp-competitor-help {
-      margin-top: 12px;
-      font-size: 12px;
-      opacity: .5;
-    }
-
-    .rp-competitor-summary {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin: 20px 0;
-    }
-
-    .rp-competitor-stat {
-      padding: 18px;
-      border: 1px solid rgba(255,255,255,.09);
-      border-radius: 14px;
-      background: rgba(255,255,255,.025);
-    }
-
-    .rp-competitor-stat span {
-      display: block;
-      font-size: 12px;
-      opacity: .6;
-      margin-bottom: 7px;
-    }
-
-    .rp-competitor-stat strong {
-      display: block;
-      font-size: 27px;
-    }
-
-    .rp-competitor-cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-bottom: 24px;
-    }
-
-    .rp-competitor-card {
-      padding: 18px;
-      border: 1px solid rgba(255,255,255,.09);
-      border-radius: 14px;
-      background: rgba(255,255,255,.025);
-    }
-
-    .rp-competitor-card small {
-      display: block;
-      opacity: .5;
-      margin-bottom: 8px;
-      word-break: break-all;
-    }
-
-    .rp-competitor-score {
-      font-size: 32px;
-      font-weight: 800;
-    }
-
-    .rp-competitor-score-label {
-      font-size: 12px;
-      opacity: .55;
-    }
-
-    .rp-gap-table-wrapper {
-      overflow-x: auto;
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 14px;
-    }
-
-    .rp-gap-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 650px;
-    }
-
-    .rp-gap-table th,
-    .rp-gap-table td {
-      padding: 13px 15px;
-      text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,.07);
-      font-size: 13px;
-    }
-
-    .rp-gap-table th {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      opacity: .55;
-    }
-
-    .rp-gap-table tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .rp-opportunity {
-      font-weight: 800;
-    }
-
-    .rp-positive {
-      font-weight: 700;
-    }
-
-    .rp-keyword-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    .rp-keyword-pill {
-      padding: 7px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-      font-size: 12px;
-    }
-
-    .rp-empty {
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px dashed rgba(255,255,255,.12);
-      opacity: .65;
-      text-align: center;
-    }
-
-    @media (max-width: 800px) {
-      .rp-competitor-fields,
-      .rp-competitor-summary,
-      .rp-competitor-cards {
-        grid-template-columns: 1fr;
-      }
-    }
-  `;
-
-  document.head.appendChild(style);
-}
-
-
-/* =========================================================
-   INICIALIZACIÓN
-========================================================= */
-
-createCompetitorControls();
-
-
-/* =========================================================
    ANALIZAR WEB
 ========================================================= */
 
@@ -336,57 +35,15 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-
-  /* =====================================================
-     OBTENER COMPETIDORES
-  ===================================================== */
-
-  const competitorInputs = [
-    ...document.querySelectorAll(".competitor-input")
-  ];
-
-  const competitors = [];
-
-  for (const competitorInput of competitorInputs) {
-    const value = competitorInput.value.trim();
-
-    if (!value) continue;
-
-    const normalized = normalizeUrl(value);
-
-    if (!normalized) {
-      message.innerHTML = `
-        <div class="seo-error">
-          ❌ Esta URL de competidor no es válida:
-          <strong>${escapeHtml(value)}</strong>
-        </div>
-      `;
-      return;
-    }
-
-    competitors.push(normalized);
-  }
+  await analyzeWebsite(url);
+});
 
 
-  /* Eliminar duplicados */
+/* =========================================================
+   ANÁLISIS PRINCIPAL
+========================================================= */
 
-  const uniqueCompetitors = [
-    ...new Set(competitors)
-  ];
-
-
-  /* Evitar comparar la web consigo misma */
-
-  const targetHostname = getHostname(url);
-
-  const filteredCompetitors = uniqueCompetitors.filter(
-    competitor => getHostname(competitor) !== targetHostname
-  );
-
-
-  /* =====================================================
-     LOADING
-  ===================================================== */
+async function analyzeWebsite(url, competitors = []) {
 
   message.innerHTML = `
     <div class="seo-loading">
@@ -398,27 +55,30 @@ form.addEventListener("submit", async (event) => {
       </h3>
 
       <p>
-        Revisando SEO técnico, contenido, keywords
-        ${filteredCompetitors.length ? "y competidores" : ""}
-        ...
+        Revisando SEO técnico, contenido e indexabilidad...
       </p>
 
     </div>
   `;
 
 
-  /* =====================================================
-     CONSTRUIR REQUEST
-  ===================================================== */
-
   const params = new URLSearchParams();
 
   params.set("url", url);
 
-  filteredCompetitors
+
+  /*
+    Los competidores SOLO se añaden cuando
+    el usuario decide hacer una comparación.
+  */
+
+  competitors
     .slice(0, 3)
     .forEach((competitor) => {
-      params.append("competitor", competitor);
+      params.append(
+        "competitor",
+        competitor
+      );
     });
 
 
@@ -433,7 +93,8 @@ form.addEventListener("submit", async (event) => {
 
     if (!response.ok || !data.success) {
       throw new Error(
-        data.error || "No se pudo analizar la web."
+        data.error ||
+        "No se pudo analizar la web."
       );
     }
 
@@ -458,20 +119,22 @@ form.addEventListener("submit", async (event) => {
       </div>
     `;
   }
-});
+}
 
 
 /* =========================================================
-   RENDER PRINCIPAL
+   RESULTADOS
 ========================================================= */
 
 function renderResults(data) {
 
   const seo = data.seo || {};
 
-  const categories = seo.categories || {};
+  const categories =
+    seo.categories || {};
 
-  const keywords = seo.keywords || [];
+  const keywords =
+    seo.keywords || [];
 
   const keywordRecommendations =
     seo.keywordRecommendations || [];
@@ -517,13 +180,29 @@ function renderResults(data) {
   let hostname = "";
 
   try {
-    hostname = new URL(
-      data.finalUrl
-    ).hostname;
+
+    hostname =
+      new URL(
+        data.finalUrl
+      ).hostname;
 
   } catch {
-    hostname = data.finalUrl || "";
+
+    hostname =
+      data.finalUrl || "";
+
   }
+
+
+  /*
+    Detectamos si este análisis
+    ya incluye competidores.
+  */
+
+  const hasCompetitors =
+    competitors.length > 0 &&
+    competitorAnalysis &&
+    competitorAnalysis.enabled;
 
 
   message.innerHTML = `
@@ -548,7 +227,9 @@ function renderResults(data) {
           </h2>
 
           <p>
-            ${escapeHtml(data.finalUrl || "")}
+            ${escapeHtml(
+              data.finalUrl || ""
+            )}
           </p>
 
         </div>
@@ -556,7 +237,10 @@ function renderResults(data) {
 
         <button
           class="new-analysis"
-          onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
+          onclick="window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          })"
         >
           ← Nuevo análisis
         </button>
@@ -566,12 +250,16 @@ function renderResults(data) {
 
 
       <!-- =================================================
-           SCORE
+           SCORE PRINCIPAL
       ================================================= -->
 
       <div class="main-score-card">
 
-        <div class="score-ring ${getStatus(seo.score || 0)}">
+        <div
+          class="score-ring ${getStatus(
+            seo.score || 0
+          )}"
+        >
 
           <div class="score-ring-inner">
 
@@ -579,7 +267,9 @@ function renderResults(data) {
               ${seo.score || 0}
             </strong>
 
-            <span>/100</span>
+            <span>
+              /100
+            </span>
 
           </div>
 
@@ -593,7 +283,9 @@ function renderResults(data) {
           </span>
 
           <h2>
-            ${getLabel(seo.score || 0)}
+            ${getLabel(
+              seo.score || 0
+            )}
           </h2>
 
           <p>
@@ -605,15 +297,18 @@ function renderResults(data) {
           <div class="score-stats">
 
             <span>
-              🔴 ${criticalIssues.length} problemas
+              🔴 ${criticalIssues.length}
+              problemas
             </span>
 
             <span>
-              🟡 ${warnings.length} recomendaciones
+              🟡 ${warnings.length}
+              recomendaciones
             </span>
 
             <span>
-              🟢 ${passed.length} correctos
+              🟢 ${passed.length}
+              correctos
             </span>
 
           </div>
@@ -621,6 +316,21 @@ function renderResults(data) {
         </div>
 
       </div>
+
+
+
+      <!-- =================================================
+           COMPARAR CON COMPETIDORES
+      ================================================= -->
+
+      ${
+        !hasCompetitors
+          ? renderCompetitorCTA()
+          : renderCompetitorAnalysis(
+              competitorAnalysis,
+              competitors
+            )
+      }
 
 
 
@@ -697,17 +407,6 @@ function renderResults(data) {
 
 
       <!-- =================================================
-           COMPETITOR ANALYSIS
-      ================================================= -->
-
-      ${renderCompetitorAnalysis(
-        competitorAnalysis,
-        competitors
-      )}
-
-
-
-      <!-- =================================================
            PROBLEMAS
       ================================================= -->
 
@@ -770,8 +469,8 @@ function renderResults(data) {
 
                         Revisa este elemento y corrígelo
                         en el código o CMS de tu página.
-                        Después vuelve a ejecutar el análisis
-                        para comprobar el resultado.
+                        Después vuelve a ejecutar el
+                        análisis para comprobar el resultado.
 
                       </div>
 
@@ -1066,10 +765,1348 @@ function renderResults(data) {
 
 
 /* =========================================================
+   BOTÓN COMPARAR
+========================================================= */
+
+function renderCompetitorCTA() {
+
+  return `
+
+    <div
+      id="competitorSection"
+      class="rp-competitor-cta"
+    >
+
+      <div class="rp-competitor-cta-content">
+
+        <div>
+
+          <span class="rp-small-label">
+            COMPETITOR ANALYSIS
+          </span>
+
+          <h2>
+            ¿Quieres comparar tu web?
+          </h2>
+
+          <p>
+            Descubre qué están haciendo tus competidores,
+            qué keywords tienen y qué oportunidades estás
+            dejando pasar.
+          </p>
+
+        </div>
+
+
+        <button
+          type="button"
+          class="rp-compare-button"
+          onclick="openCompetitorForm()"
+        >
+          Comparar con competidores →
+        </button>
+
+      </div>
+
+
+      <div
+        id="competitorForm"
+        class="rp-competitor-form"
+        style="display:none;"
+      >
+
+        <div class="rp-competitor-form-header">
+
+          <div>
+
+            <span class="rp-small-label">
+              COMPARACIÓN
+            </span>
+
+            <h3>
+              Añade hasta 3 competidores
+            </h3>
+
+            <p>
+              Introduce las webs que quieres analizar
+              junto a la tuya.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="rp-competitor-fields">
+
+          <div class="rp-competitor-field">
+
+            <span>
+              01
+            </span>
+
+            <input
+              type="text"
+              class="competitor-input"
+              placeholder="https://competidor1.com"
+            />
+
+          </div>
+
+
+          <div class="rp-competitor-field">
+
+            <span>
+              02
+            </span>
+
+            <input
+              type="text"
+              class="competitor-input"
+              placeholder="https://competidor2.com"
+            />
+
+          </div>
+
+
+          <div class="rp-competitor-field">
+
+            <span>
+              03
+            </span>
+
+            <input
+              type="text"
+              class="competitor-input"
+              placeholder="https://competidor3.com"
+            />
+
+          </div>
+
+        </div>
+
+
+        <div class="rp-competitor-actions">
+
+          <button
+            type="button"
+            class="rp-compare-button"
+            onclick="runCompetitorAnalysis()"
+          >
+            Analizar competidores
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    ${getCompetitorStyles()}
+
+  `;
+}
+
+
+/* =========================================================
+   ABRIR FORMULARIO COMPETIDORES
+========================================================= */
+
+function openCompetitorForm() {
+
+  const form =
+    document.getElementById(
+      "competitorForm"
+    );
+
+  if (!form) return;
+
+  form.style.display = "block";
+
+  const section =
+    document.getElementById(
+      "competitorSection"
+    );
+
+  if (section) {
+
+    section.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+
+  }
+}
+
+
+/* =========================================================
+   ANALIZAR COMPETIDORES
+========================================================= */
+
+async function runCompetitorAnalysis() {
+
+  const competitorInputs =
+    document.querySelectorAll(
+      ".competitor-input"
+    );
+
+
+  const competitors = [];
+
+
+  for (
+    const competitorInput
+    of competitorInputs
+  ) {
+
+    const value =
+      competitorInput.value.trim();
+
+    if (!value) continue;
+
+
+    const normalized =
+      normalizeUrl(value);
+
+
+    if (!normalized) {
+
+      alert(
+        `La URL "${value}" no es válida.`
+      );
+
+      return;
+
+    }
+
+
+    competitors.push(
+      normalized
+    );
+
+  }
+
+
+  if (!competitors.length) {
+
+    alert(
+      "Introduce al menos un competidor."
+    );
+
+    return;
+
+  }
+
+
+  /*
+    Eliminar duplicados
+  */
+
+  const uniqueCompetitors =
+    [
+      ...new Set(
+        competitors
+      )
+    ];
+
+
+  /*
+    Obtener la URL de la web principal
+  */
+
+  let mainUrl =
+    input.value.trim();
+
+
+  mainUrl =
+    normalizeUrl(mainUrl);
+
+
+  if (!mainUrl) {
+
+    alert(
+      "No se ha podido identificar la web principal."
+    );
+
+    return;
+
+  }
+
+
+  /*
+    Evitar compararse consigo mismo
+  */
+
+  const mainHostname =
+    getHostname(mainUrl);
+
+
+  const filteredCompetitors =
+    uniqueCompetitors.filter(
+      competitor =>
+        getHostname(competitor) !==
+        mainHostname
+    );
+
+
+  if (!filteredCompetitors.length) {
+
+    alert(
+      "Introduce una web diferente a la principal."
+    );
+
+    return;
+
+  }
+
+
+  /*
+    Máximo 3
+  */
+
+  await analyzeWebsite(
+    mainUrl,
+    filteredCompetitors.slice(0, 3)
+  );
+}
+
+
+/* =========================================================
+   RESULTADOS DE COMPETIDORES
+========================================================= */
+
+function renderCompetitorAnalysis(
+  analysis,
+  competitors
+) {
+
+  const opportunities =
+    analysis.opportunities || [];
+
+  const sharedKeywords =
+    analysis.sharedKeywords || [];
+
+  const uniqueKeywords =
+    analysis.uniqueKeywords || [];
+
+
+  return `
+
+    <div
+      class="section-title"
+      style="margin-top:40px;"
+    >
+
+      <div>
+
+        <span>
+          COMPETITOR ANALYSIS
+        </span>
+
+        <h2>
+          Comparativa competitiva
+        </h2>
+
+      </div>
+
+    </div>
+
+
+    <!-- RESUMEN -->
+
+    <div class="rp-competitor-summary">
+
+      <div class="rp-competitor-stat">
+
+        <span>
+          COMPETIDORES
+        </span>
+
+        <strong>
+          ${
+            analysis.competitorCount ||
+            competitors.length
+          }
+        </strong>
+
+      </div>
+
+
+      <div class="rp-competitor-stat">
+
+        <span>
+          OPORTUNIDADES
+        </span>
+
+        <strong>
+          ${opportunities.length}
+        </strong>
+
+      </div>
+
+
+      <div class="rp-competitor-stat">
+
+        <span>
+          KEYWORDS COMPARTIDAS
+        </span>
+
+        <strong>
+          ${sharedKeywords.length}
+        </strong>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- SCORES -->
+
+    <div class="rp-competitor-cards">
+
+      ${competitors
+        .map(
+          competitor => {
+
+            const score =
+              competitor.seo?.score ??
+              0;
+
+
+            let competitorHostname =
+              "";
+
+            try {
+
+              competitorHostname =
+                new URL(
+                  competitor.finalUrl ||
+                  competitor.url
+                ).hostname;
+
+            } catch {
+
+              competitorHostname =
+                competitor.finalUrl ||
+                competitor.url ||
+                "Competidor";
+
+            }
+
+
+            if (!competitor.success) {
+
+              return `
+
+                <div
+                  class="rp-competitor-card"
+                >
+
+                  <small>
+                    ${escapeHtml(
+                      competitorHostname
+                    )}
+                  </small>
+
+                  <strong>
+                    No se pudo analizar
+                  </strong>
+
+                  <p>
+                    ${escapeHtml(
+                      competitor.error ||
+                      "Error desconocido"
+                    )}
+                  </p>
+
+                </div>
+
+              `;
+            }
+
+
+            return `
+
+              <div
+                class="rp-competitor-card"
+              >
+
+                <small>
+                  ${escapeHtml(
+                    competitorHostname
+                  )}
+                </small>
+
+                <div
+                  class="rp-competitor-score"
+                >
+                  ${score}
+                </div>
+
+                <div
+                  class="rp-competitor-score-label"
+                >
+                  SEO Score
+                </div>
+
+              </div>
+
+            `;
+          }
+        )
+        .join("")}
+
+    </div>
+
+
+
+    <!-- KEYWORD GAP -->
+
+    <div class="problems-card">
+
+      <div style="margin-bottom:18px;">
+
+        <span class="results-label">
+          KEYWORD GAP
+        </span>
+
+        <h3
+          style="
+            margin:6px 0 5px;
+          "
+        >
+          Oportunidades de keywords
+        </h3>
+
+        <p
+          style="
+            margin:0;
+            opacity:.65;
+            font-size:14px;
+          "
+        >
+          Keywords detectadas en tus competidores
+          que todavía no aparecen en tu web.
+        </p>
+
+      </div>
+
+
+      ${
+        opportunities.length
+
+          ? `
+
+            <div
+              class="rp-gap-table-wrapper"
+            >
+
+              <table
+                class="rp-gap-table"
+              >
+
+                <thead>
+
+                  <tr>
+
+                    <th>
+                      Keyword
+                    </th>
+
+                    <th>
+                      Competidores
+                    </th>
+
+                    <th>
+                      Mejor score
+                    </th>
+
+                    <th>
+                      Oportunidad
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                  ${opportunities
+                    .map(
+                      opportunity => `
+
+                        <tr>
+
+                          <td>
+
+                            <strong>
+                              ${escapeHtml(
+                                opportunity.keyword
+                              )}
+                            </strong>
+
+                          </td>
+
+                          <td>
+                            ${
+                              opportunity.competitorCount ??
+                              0
+                            }
+                          </td>
+
+                          <td>
+                            ${
+                              opportunity.bestScore ??
+                              0
+                            }
+                          </td>
+
+                          <td>
+
+                            <span
+                              class="rp-opportunity"
+                            >
+                              ${
+                                opportunity.opportunityScore ??
+                                0
+                              }
+                            </span>
+
+                          </td>
+
+                        </tr>
+
+                      `
+                    )
+                    .join("")}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          `
+
+          : `
+
+            <div class="rp-empty">
+
+              No se han encontrado nuevas
+              oportunidades de keywords.
+
+            </div>
+
+          `
+      }
+
+    </div>
+
+
+
+    <!-- SHARED KEYWORDS -->
+
+    ${
+      sharedKeywords.length
+
+        ? `
+
+          <div class="problems-card">
+
+            <div
+              style="
+                margin-bottom:18px;
+              "
+            >
+
+              <span class="results-label">
+                SHARED KEYWORDS
+              </span>
+
+              <h3
+                style="
+                  margin:6px 0 5px;
+                "
+              >
+                Keywords compartidas
+              </h3>
+
+            </div>
+
+
+            <div
+              class="rp-gap-table-wrapper"
+            >
+
+              <table
+                class="rp-gap-table"
+              >
+
+                <thead>
+
+                  <tr>
+
+                    <th>
+                      Keyword
+                    </th>
+
+                    <th>
+                      Tu score
+                    </th>
+
+                    <th>
+                      Competidor
+                    </th>
+
+                    <th>
+                      Diferencia
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                  ${sharedKeywords
+                    .slice(0, 30)
+                    .map(
+                      item => `
+
+                        <tr>
+
+                          <td>
+
+                            <strong>
+                              ${escapeHtml(
+                                item.keyword
+                              )}
+                            </strong>
+
+                          </td>
+
+                          <td>
+                            ${
+                              item.ownScore ??
+                              0
+                            }
+                          </td>
+
+                          <td>
+                            ${
+                              item.competitorScore ??
+                              0
+                            }
+                          </td>
+
+                          <td>
+
+                            <span
+                              class="rp-positive"
+                            >
+
+                              ${
+                                item.difference > 0
+                                  ? "+"
+                                  : ""
+                              }
+
+                              ${
+                                item.difference ??
+                                0
+                              }
+
+                            </span>
+
+                          </td>
+
+                        </tr>
+
+                      `
+                    )
+                    .join("")}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </div>
+
+        `
+
+        : ""
+    }
+
+
+
+    <!-- KEYWORDS PROPIAS -->
+
+    ${
+      uniqueKeywords.length
+
+        ? `
+
+          <div class="problems-card">
+
+            <div
+              style="
+                margin-bottom:14px;
+              "
+            >
+
+              <span class="results-label">
+                YOUR KEYWORDS
+              </span>
+
+              <h3
+                style="
+                  margin:6px 0 5px;
+                "
+              >
+                Keywords propias
+              </h3>
+
+            </div>
+
+
+            <div
+              class="rp-keyword-list"
+            >
+
+              ${uniqueKeywords
+                .slice(0, 30)
+                .map(
+                  item => `
+
+                    <span
+                      class="rp-keyword-pill"
+                    >
+
+                      ${escapeHtml(
+                        item.keyword
+                      )}
+
+                      ·
+
+                      ${item.ownScore ?? 0}
+
+                    </span>
+
+                  `
+                )
+                .join("")}
+
+            </div>
+
+          </div>
+
+        `
+
+        : ""
+    }
+
+  `;
+}
+
+
+/* =========================================================
+   ESTILOS COMPETITOR
+========================================================= */
+
+function getCompetitorStyles() {
+
+  return `
+
+    <style>
+
+      .rp-competitor-cta {
+
+        margin:35px 0;
+
+        padding:28px;
+
+        border:1px solid
+          rgba(255,255,255,.10);
+
+        border-radius:18px;
+
+        background:
+          rgba(255,255,255,.025);
+
+      }
+
+
+      .rp-competitor-cta-content {
+
+        display:flex;
+
+        align-items:center;
+
+        justify-content:space-between;
+
+        gap:30px;
+
+      }
+
+
+      .rp-small-label {
+
+        display:block;
+
+        font-size:11px;
+
+        font-weight:700;
+
+        letter-spacing:.12em;
+
+        opacity:.6;
+
+        margin-bottom:7px;
+
+      }
+
+
+      .rp-competitor-cta h2 {
+
+        margin:
+          0 0 8px;
+
+      }
+
+
+      .rp-competitor-cta p {
+
+        margin:0;
+
+        max-width:650px;
+
+        opacity:.65;
+
+        font-size:14px;
+
+        line-height:1.6;
+
+      }
+
+
+      .rp-compare-button {
+
+        border:0;
+
+        border-radius:10px;
+
+        padding:13px 18px;
+
+        cursor:pointer;
+
+        font-weight:700;
+
+        white-space:nowrap;
+
+        background:
+          rgba(255,255,255,.10);
+
+        color:inherit;
+
+      }
+
+
+      .rp-compare-button:hover {
+
+        background:
+          rgba(255,255,255,.16);
+
+      }
+
+
+      .rp-competitor-form {
+
+        margin-top:25px;
+
+        padding-top:25px;
+
+        border-top:
+          1px solid
+          rgba(255,255,255,.08);
+
+      }
+
+
+      .rp-competitor-form-header h3 {
+
+        margin:
+          0 0 6px;
+
+      }
+
+
+      .rp-competitor-form-header p {
+
+        margin:0;
+
+        opacity:.6;
+
+        font-size:14px;
+
+      }
+
+
+      .rp-competitor-fields {
+
+        display:grid;
+
+        grid-template-columns:
+          repeat(3, 1fr);
+
+        gap:12px;
+
+        margin-top:20px;
+
+      }
+
+
+      .rp-competitor-field {
+
+        display:flex;
+
+        align-items:center;
+
+        gap:8px;
+
+      }
+
+
+      .rp-competitor-field > span {
+
+        min-width:24px;
+
+        font-size:11px;
+
+        opacity:.5;
+
+        font-weight:700;
+
+      }
+
+
+      .rp-competitor-field input {
+
+        width:100%;
+
+        box-sizing:border-box;
+
+        padding:12px 14px;
+
+        border-radius:10px;
+
+        border:
+          1px solid
+          rgba(255,255,255,.12);
+
+        background:
+          rgba(0,0,0,.15);
+
+        color:inherit;
+
+        outline:none;
+
+      }
+
+
+      .rp-competitor-field input:focus {
+
+        border-color:
+          rgba(255,255,255,.35);
+
+      }
+
+
+      .rp-competitor-actions {
+
+        margin-top:18px;
+
+        display:flex;
+
+        justify-content:flex-end;
+
+      }
+
+
+      .rp-competitor-summary {
+
+        display:grid;
+
+        grid-template-columns:
+          repeat(3, 1fr);
+
+        gap:14px;
+
+        margin:20px 0;
+
+      }
+
+
+      .rp-competitor-stat {
+
+        padding:18px;
+
+        border:
+          1px solid
+          rgba(255,255,255,.09);
+
+        border-radius:14px;
+
+        background:
+          rgba(255,255,255,.025);
+
+      }
+
+
+      .rp-competitor-stat span {
+
+        display:block;
+
+        font-size:12px;
+
+        opacity:.6;
+
+        margin-bottom:7px;
+
+      }
+
+
+      .rp-competitor-stat strong {
+
+        display:block;
+
+        font-size:27px;
+
+      }
+
+
+      .rp-competitor-cards {
+
+        display:grid;
+
+        grid-template-columns:
+          repeat(3, 1fr);
+
+        gap:14px;
+
+        margin-bottom:24px;
+
+      }
+
+
+      .rp-competitor-card {
+
+        padding:18px;
+
+        border:
+          1px solid
+          rgba(255,255,255,.09);
+
+        border-radius:14px;
+
+        background:
+          rgba(255,255,255,.025);
+
+      }
+
+
+      .rp-competitor-card small {
+
+        display:block;
+
+        opacity:.5;
+
+        margin-bottom:8px;
+
+        word-break:break-all;
+
+      }
+
+
+      .rp-competitor-score {
+
+        font-size:32px;
+
+        font-weight:800;
+
+      }
+
+
+      .rp-competitor-score-label {
+
+        font-size:12px;
+
+        opacity:.55;
+
+      }
+
+
+      .rp-gap-table-wrapper {
+
+        overflow-x:auto;
+
+        border:
+          1px solid
+          rgba(255,255,255,.08);
+
+        border-radius:14px;
+
+      }
+
+
+      .rp-gap-table {
+
+        width:100%;
+
+        border-collapse:collapse;
+
+        min-width:650px;
+
+      }
+
+
+      .rp-gap-table th,
+      .rp-gap-table td {
+
+        padding:13px 15px;
+
+        text-align:left;
+
+        border-bottom:
+          1px solid
+          rgba(255,255,255,.07);
+
+        font-size:13px;
+
+      }
+
+
+      .rp-gap-table th {
+
+        font-size:11px;
+
+        text-transform:uppercase;
+
+        letter-spacing:.06em;
+
+        opacity:.55;
+
+      }
+
+
+      .rp-gap-table tr:last-child td {
+
+        border-bottom:0;
+
+      }
+
+
+      .rp-opportunity {
+
+        font-weight:800;
+
+      }
+
+
+      .rp-positive {
+
+        font-weight:700;
+
+      }
+
+
+      .rp-keyword-list {
+
+        display:flex;
+
+        flex-wrap:wrap;
+
+        gap:8px;
+
+        margin-top:14px;
+
+      }
+
+
+      .rp-keyword-pill {
+
+        padding:7px 10px;
+
+        border-radius:999px;
+
+        background:
+          rgba(255,255,255,.06);
+
+        border:
+          1px solid
+          rgba(255,255,255,.08);
+
+        font-size:12px;
+
+      }
+
+
+      .rp-empty {
+
+        padding:20px;
+
+        border-radius:12px;
+
+        border:
+          1px dashed
+          rgba(255,255,255,.12);
+
+        opacity:.65;
+
+        text-align:center;
+
+      }
+
+
+      @media (max-width:800px) {
+
+        .rp-competitor-cta-content {
+
+          flex-direction:column;
+
+          align-items:flex-start;
+
+        }
+
+
+        .rp-competitor-fields,
+        .rp-competitor-summary,
+        .rp-competitor-cards {
+
+          grid-template-columns:1fr;
+
+        }
+
+      }
+
+    </style>
+
+  `;
+}
+
+
+/* =========================================================
    KEYWORD INTELLIGENCE
 ========================================================= */
 
-function renderKeywordIntelligence(keywords, seo) {
+function renderKeywordIntelligence(
+  keywords,
+  seo
+) {
 
   if (!keywords.length) {
 
@@ -1091,8 +2128,11 @@ function renderKeywordIntelligence(keywords, seo) {
 
       </div>
 
+
       <div class="empty-state">
+
         No se han detectado suficientes keywords.
+
       </div>
 
     `;
@@ -1131,35 +2171,82 @@ function renderKeywordIntelligence(keywords, seo) {
 
     <div class="problems-card">
 
-      <div class="keyword-summary">
+      <div
+        style="
+          display:flex;
+          gap:20px;
+          align-items:center;
+          flex-wrap:wrap;
+          margin-bottom:18px;
+        "
+      >
 
-        <strong>
-          ${seo.keywordCount || keywords.length}
-        </strong>
+        <div>
 
-        <span>
-          keywords analizadas
-        </span>
+          <strong
+            style="
+              font-size:26px;
+            "
+          >
+            ${
+              seo.keywordCount ||
+              keywords.length
+            }
+          </strong>
+
+          <span
+            style="
+              display:block;
+              opacity:.6;
+              font-size:12px;
+            "
+          >
+            keywords analizadas
+          </span>
+
+        </div>
+
 
         ${
           seo.primaryKeyword
+
             ? `
-              <span>
-                Keyword principal:
+
+              <div>
+
+                <span
+                  style="
+                    display:block;
+                    opacity:.6;
+                    font-size:12px;
+                  "
+                >
+                  Keyword principal
+                </span>
+
                 <strong>
-                  ${escapeHtml(seo.primaryKeyword)}
+                  ${escapeHtml(
+                    seo.primaryKeyword
+                  )}
                 </strong>
-              </span>
+
+              </div>
+
             `
+
             : ""
         }
 
       </div>
 
 
-      <div class="rp-gap-table-wrapper">
+      <div
+        class="rp-gap-table-wrapper"
+      >
 
-        <table class="rp-gap-table">
+        <table
+          class="rp-gap-table"
+        >
 
           <thead>
 
@@ -1195,11 +2282,14 @@ function renderKeywordIntelligence(keywords, seo) {
                   <tr>
 
                     <td>
+
                       <strong>
                         ${escapeHtml(
-                          keyword.keyword || ""
+                          keyword.keyword ||
+                          ""
                         )}
                       </strong>
+
                     </td>
 
                     <td>
@@ -1211,11 +2301,17 @@ function renderKeywordIntelligence(keywords, seo) {
                     </td>
 
                     <td>
-                      ${keyword.count || 0}
+                      ${
+                        keyword.count ||
+                        0
+                      }
                     </td>
 
                     <td>
-                      ${keyword.score || 0}
+                      ${
+                        keyword.score ||
+                        0
+                      }
                     </td>
 
                   </tr>
@@ -1277,14 +2373,19 @@ function renderKeywordRecommendations(
 
             const keyword =
               typeof recommendation === "string"
+
                 ? recommendation
+
                 : recommendation.keyword ||
                   recommendation.term ||
                   "";
 
+
             const reason =
               typeof recommendation === "string"
+
                 ? "Oportunidad detectada en el análisis SEO."
+
                 : recommendation.reason ||
                   recommendation.recommendation ||
                   "Oportunidad detectada en el análisis SEO.";
@@ -1298,14 +2399,19 @@ function renderKeywordRecommendations(
                   ${index + 1}
                 </div>
 
+
                 <div class="problem-content">
 
                   <strong>
-                    ${escapeHtml(keyword)}
+                    ${escapeHtml(
+                      keyword
+                    )}
                   </strong>
 
                   <p>
-                    ${escapeHtml(reason)}
+                    ${escapeHtml(
+                      reason
+                    )}
                   </p>
 
                 </div>
@@ -1318,522 +2424,6 @@ function renderKeywordRecommendations(
         .join("")}
 
     </div>
-
-  `;
-}
-
-
-/* =========================================================
-   COMPETITOR ANALYSIS
-========================================================= */
-
-function renderCompetitorAnalysis(
-  analysis,
-  competitors
-) {
-
-  if (
-    !analysis ||
-    !analysis.enabled ||
-    !competitors.length
-  ) {
-
-    return `
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            COMPETITOR ANALYSIS
-          </span>
-
-          <h2>
-            Análisis de competidores
-          </h2>
-
-        </div>
-
-      </div>
-
-      <div class="rp-empty">
-
-        Añade hasta 3 competidores arriba para
-        descubrir qué keywords están trabajando
-        y tú todavía no.
-
-      </div>
-
-    `;
-  }
-
-
-  const opportunities =
-    analysis.opportunities || [];
-
-  const sharedKeywords =
-    analysis.sharedKeywords || [];
-
-  const uniqueKeywords =
-    analysis.uniqueKeywords || [];
-
-
-  return `
-
-    <div class="section-title">
-
-      <div>
-
-        <span>
-          COMPETITOR ANALYSIS
-        </span>
-
-        <h2>
-          Comparativa competitiva
-        </h2>
-
-      </div>
-
-    </div>
-
-
-    <!-- RESUMEN -->
-
-    <div class="rp-competitor-summary">
-
-      <div class="rp-competitor-stat">
-
-        <span>
-          COMPETIDORES
-        </span>
-
-        <strong>
-          ${analysis.competitorCount || competitors.length}
-        </strong>
-
-      </div>
-
-
-      <div class="rp-competitor-stat">
-
-        <span>
-          OPORTUNIDADES
-        </span>
-
-        <strong>
-          ${opportunities.length}
-        </strong>
-
-      </div>
-
-
-      <div class="rp-competitor-stat">
-
-        <span>
-          KEYWORDS COMPARTIDAS
-        </span>
-
-        <strong>
-          ${sharedKeywords.length}
-        </strong>
-
-      </div>
-
-    </div>
-
-
-
-    <!-- SCORES -->
-
-    <div class="rp-competitor-cards">
-
-      ${competitors
-        .map(
-          competitor => {
-
-            const score =
-              competitor.seo?.score ?? 0;
-
-            let competitorHostname = "";
-
-            try {
-
-              competitorHostname =
-                new URL(
-                  competitor.finalUrl ||
-                  competitor.url
-                ).hostname;
-
-            } catch {
-
-              competitorHostname =
-                competitor.finalUrl ||
-                competitor.url ||
-                "Competidor";
-
-            }
-
-
-            if (!competitor.success) {
-
-              return `
-
-                <div class="rp-competitor-card">
-
-                  <small>
-                    ${escapeHtml(
-                      competitorHostname
-                    )}
-                  </small>
-
-                  <strong>
-                    No se pudo analizar
-                  </strong>
-
-                  <p>
-                    ${escapeHtml(
-                      competitor.error ||
-                      "Error desconocido"
-                    )}
-                  </p>
-
-                </div>
-
-              `;
-            }
-
-
-            return `
-
-              <div class="rp-competitor-card">
-
-                <small>
-                  ${escapeHtml(
-                    competitorHostname
-                  )}
-                </small>
-
-                <div class="rp-competitor-score">
-                  ${score}
-                </div>
-
-                <div class="rp-competitor-score-label">
-                  SEO Score
-                </div>
-
-              </div>
-
-            `;
-          }
-        )
-        .join("")}
-
-    </div>
-
-
-
-    <!-- KEYWORD GAP -->
-
-    <div class="problems-card">
-
-      <div style="margin-bottom:18px;">
-
-        <span class="results-label">
-          KEYWORD GAP
-        </span>
-
-        <h3 style="margin:6px 0 5px;">
-          Oportunidades que tienen tus competidores
-        </h3>
-
-        <p style="margin:0;opacity:.65;font-size:14px;">
-
-          Estas keywords aparecen en los competidores
-          analizados pero no han sido detectadas en
-          tu web.
-
-        </p>
-
-      </div>
-
-
-      ${
-        opportunities.length
-
-          ? `
-
-            <div class="rp-gap-table-wrapper">
-
-              <table class="rp-gap-table">
-
-                <thead>
-
-                  <tr>
-
-                    <th>
-                      Keyword
-                    </th>
-
-                    <th>
-                      Competidores
-                    </th>
-
-                    <th>
-                      Mejor score
-                    </th>
-
-                    <th>
-                      Opportunity
-                    </th>
-
-                  </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                  ${opportunities
-                    .map(
-                      opportunity => `
-
-                        <tr>
-
-                          <td>
-
-                            <strong>
-                              ${escapeHtml(
-                                opportunity.keyword
-                              )}
-                            </strong>
-
-                          </td>
-
-                          <td>
-                            ${
-                              opportunity.competitorCount ||
-                              0
-                            }
-                          </td>
-
-                          <td>
-                            ${
-                              opportunity.bestScore ??
-                              0
-                            }
-                          </td>
-
-                          <td>
-
-                            <span class="rp-opportunity">
-
-                              ${
-                                opportunity.opportunityScore ??
-                                0
-                              }
-
-                            </span>
-
-                          </td>
-
-                        </tr>
-
-                      `
-                    )
-                    .join("")}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          `
-
-          : `
-
-            <div class="rp-empty">
-
-              No se han encontrado nuevas oportunidades
-              de keywords todavía.
-
-            </div>
-
-          `
-      }
-
-    </div>
-
-
-
-    <!-- SHARED KEYWORDS -->
-
-    ${
-      sharedKeywords.length
-
-        ? `
-
-          <div class="problems-card">
-
-            <div style="margin-bottom:18px;">
-
-              <span class="results-label">
-                SHARED KEYWORDS
-              </span>
-
-              <h3 style="margin:6px 0 5px;">
-                Keywords que ya compartes con competidores
-              </h3>
-
-            </div>
-
-
-            <div class="rp-gap-table-wrapper">
-
-              <table class="rp-gap-table">
-
-                <thead>
-
-                  <tr>
-
-                    <th>
-                      Keyword
-                    </th>
-
-                    <th>
-                      Tu score
-                    </th>
-
-                    <th>
-                      Competidor
-                    </th>
-
-                    <th>
-                      Diferencia
-                    </th>
-
-                  </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                  ${sharedKeywords
-                    .slice(0, 30)
-                    .map(
-                      item => `
-
-                        <tr>
-
-                          <td>
-                            <strong>
-                              ${escapeHtml(
-                                item.keyword
-                              )}
-                            </strong>
-                          </td>
-
-                          <td>
-                            ${item.ownScore ?? 0}
-                          </td>
-
-                          <td>
-                            ${item.competitorScore ?? 0}
-                          </td>
-
-                          <td>
-
-                            <span class="rp-positive">
-
-                              ${
-                                item.difference > 0
-                                  ? "+"
-                                  : ""
-                              }
-
-                              ${
-                                item.difference ?? 0
-                              }
-
-                            </span>
-
-                          </td>
-
-                        </tr>
-
-                      `
-                    )
-                    .join("")}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
-
-        `
-
-        : ""
-    }
-
-
-
-    <!-- UNIQUE KEYWORDS -->
-
-    ${
-      uniqueKeywords.length
-
-        ? `
-
-          <div class="problems-card">
-
-            <div style="margin-bottom:14px;">
-
-              <span class="results-label">
-                YOUR KEYWORDS
-              </span>
-
-              <h3 style="margin:6px 0 5px;">
-                Keywords propias
-              </h3>
-
-            </div>
-
-
-            <div class="rp-keyword-list">
-
-              ${uniqueKeywords
-                .slice(0, 30)
-                .map(
-                  item => `
-
-                    <span class="rp-keyword-pill">
-
-                      ${escapeHtml(
-                        item.keyword
-                      )}
-
-                      ·
-
-                      ${item.ownScore ?? 0}
-
-                    </span>
-
-                  `
-                )
-                .join("")}
-
-            </div>
-
-          </div>
-
-        `
-
-        : ""
-    }
 
   `;
 }
@@ -1889,10 +2479,12 @@ function categoryCard(
 
         <div
           class="progress-fill ${status}"
-          style="width:${Math.min(
-            Math.max(score, 0),
-            100
-          )}%"
+          style="
+            width:${Math.min(
+              Math.max(score, 0),
+              100
+            )}%
+          "
         ></div>
 
       </div>
@@ -1922,11 +2514,15 @@ function metric(
       </span>
 
       <strong>
-        ${escapeHtml(String(value))}
+        ${escapeHtml(
+          String(value)
+        )}
       </strong>
 
       <small>
-        ${escapeHtml(String(subtitle))}
+        ${escapeHtml(
+          String(subtitle)
+        )}
       </small>
 
     </div>
@@ -1936,7 +2532,7 @@ function metric(
 
 
 /* =========================================================
-   TECHNICAL ITEM
+   TECHNICAL
 ========================================================= */
 
 function technicalItem(
@@ -1955,9 +2551,7 @@ function technicalItem(
             : "tech-bad"
         }"
       >
-
         ${passed ? "✓" : "!"}
-
       </span>
 
 
@@ -1967,7 +2561,11 @@ function technicalItem(
 
 
       <span>
-        ${passed ? "Correcto" : "Revisar"}
+        ${
+          passed
+            ? "Correcto"
+            : "Revisar"
+        }
       </span>
 
     </div>
@@ -1977,7 +2575,7 @@ function technicalItem(
 
 
 /* =========================================================
-   FIX BUTTON
+   FIX
 ========================================================= */
 
 function showFix(button) {
@@ -1988,7 +2586,9 @@ function showFix(button) {
     );
 
   if (fix) {
-    fix.classList.toggle("visible");
+    fix.classList.toggle(
+      "visible"
+    );
   }
 }
 
@@ -2011,6 +2611,7 @@ function getKeywordTypeLabel(type) {
 
   };
 
+
   return (
     labels[type] ||
     type ||
@@ -2025,14 +2626,24 @@ function getKeywordTypeLabel(type) {
 
 function normalizeUrl(value) {
 
-  let url = value.trim();
+  let url =
+    value.trim();
 
-  if (!url) return "";
+  if (!url) {
+    return "";
+  }
+
 
   if (
-    !/^https?:\/\//i.test(url)
+    !/^https?:\/\//i.test(
+      url
+    )
   ) {
-    url = "https://" + url;
+
+    url =
+      "https://" +
+      url;
+
   }
 
 
@@ -2061,7 +2672,10 @@ function getHostname(url) {
 
     return new URL(url)
       .hostname
-      .replace(/^www\./, "")
+      .replace(
+        /^www\./,
+        ""
+      )
       .toLowerCase();
 
   } catch {
@@ -2078,18 +2692,43 @@ function getHostname(url) {
 
 function escapeHtml(value) {
 
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return String(
+    value ?? ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 
 /* =========================================================
-   HACER FUNCIONES DISPONIBLES PARA HTML
+   FUNCIONES GLOBALES
 ========================================================= */
 
-window.showFix = showFix;
+window.showFix =
+  showFix;
+
+window.openCompetitorForm =
+  openCompetitorForm;
+
+window.runCompetitorAnalysis =
+  runCompetitorAnalysis;
+
 
