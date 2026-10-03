@@ -6364,15 +6364,16 @@ window.rankPilotRestoreAnalysis =
   rankPilotRestoreAnalysis;
 
 /* =========================================================
-   RANKPILOT — SAAS ACCOUNT / PLANS UI
+   RANKPILOT — SAAS ACCOUNT / PLANS
    ========================================================= */
 
 const RANKPILOT_ACCOUNT_KEY =
   "rankpilot_account_v1";
 
-/* ---------------------------------------------------------
-   ACCOUNT
---------------------------------------------------------- */
+
+/* =========================================================
+   ACCOUNT STORAGE
+========================================================= */
 
 function rankPilotGetAccount() {
   try {
@@ -6389,7 +6390,22 @@ function rankPilotGetAccount() {
       };
     }
 
-    return JSON.parse(saved);
+    const account =
+      JSON.parse(saved);
+
+    return {
+      name:
+        account.name ||
+        "Usuario",
+
+      email:
+        account.email ||
+        "",
+
+      plan:
+        account.plan ||
+        "free"
+    };
 
   } catch (error) {
 
@@ -6406,30 +6422,55 @@ function rankPilotGetAccount() {
   }
 }
 
-function rankPilotSaveAccount(account) {
 
-  localStorage.setItem(
-    RANKPILOT_ACCOUNT_KEY,
-    JSON.stringify(account)
+function rankPilotSaveAccount(
+  account
+) {
+  try {
+
+    localStorage.setItem(
+      RANKPILOT_ACCOUNT_KEY,
+      JSON.stringify(account)
+    );
+
+  } catch (error) {
+
+    console.error(
+      "RankPilot: error guardando cuenta",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   PLAN HELPERS
+========================================================= */
+
+function rankPilotGetPlanName(
+  plan
+) {
+
+  const names = {
+
+    free: "Free",
+
+    pro: "Pro",
+
+    business: "Business"
+
+  };
+
+  return (
+    names[plan] ||
+    "Free"
   );
 }
 
-/* ---------------------------------------------------------
-   PLAN HELPERS
---------------------------------------------------------- */
 
-function rankPilotGetPlanName(plan) {
-
-  const names = {
-    free: "Free",
-    pro: "Pro",
-    business: "Business"
-  };
-
-  return names[plan] || "Free";
-}
-
-function rankPilotGetPlanDescription(plan) {
+function rankPilotGetPlanDescription(
+  plan
+) {
 
   const descriptions = {
 
@@ -6446,4 +6487,1957 @@ function rankPilotGetPlanDescription(plan) {
 
   return (
     descriptions[plan] ||
-    descriptions
+    descriptions.free
+  );
+}
+
+
+/* =========================================================
+   PLAN LIMITS
+========================================================= */
+
+function rankPilotGetPlanLimits(
+  plan
+) {
+
+  const limits = {
+
+    free: {
+
+      projects: 1,
+
+      analyses: 10,
+
+      competitors: false,
+
+      reports: false,
+
+      advanced: false,
+
+      team: false
+
+    },
+
+    pro: {
+
+      projects: 10,
+
+      analyses: 100,
+
+      competitors: true,
+
+      reports: true,
+
+      advanced: true,
+
+      team: false
+
+    },
+
+    business: {
+
+      projects: Infinity,
+
+      analyses: Infinity,
+
+      competitors: true,
+
+      reports: true,
+
+      advanced: true,
+
+      team: true
+
+    }
+
+  };
+
+  return (
+    limits[plan] ||
+    limits.free
+  );
+}
+
+
+/* =========================================================
+   FEATURE CHECK
+========================================================= */
+
+function rankPilotHasFeature(
+  feature
+) {
+
+  const account =
+    rankPilotGetAccount();
+
+  const plan =
+    account.plan || "free";
+
+  const limits =
+    rankPilotGetPlanLimits(
+      plan
+    );
+
+  if (
+    feature ===
+    "competitors"
+  ) {
+    return limits.competitors;
+  }
+
+  if (
+    feature ===
+    "reports"
+  ) {
+    return limits.reports;
+  }
+
+  if (
+    feature ===
+    "advanced"
+  ) {
+    return limits.advanced;
+  }
+
+  if (
+    feature ===
+    "team"
+  ) {
+    return limits.team;
+  }
+
+  return true;
+}
+
+
+/* =========================================================
+   ACCOUNT BUTTON
+========================================================= */
+
+function rankPilotCreateAccountButton() {
+
+  if (
+    document.getElementById(
+      "rankpilotAccountButton"
+    )
+  ) {
+    return;
+  }
+
+  const button =
+    document.createElement(
+      "button"
+    );
+
+  button.id =
+    "rankpilotAccountButton";
+
+  button.type =
+    "button";
+
+  button.innerHTML = `
+    <span class="rp-account-avatar">
+      A
+    </span>
+
+    <span class="rp-account-button-text">
+      Cuenta
+    </span>
+  `;
+
+  button.addEventListener(
+    "click",
+    rankPilotOpenAccount
+  );
+
+  document.body.appendChild(
+    button
+  );
+}
+
+
+/* =========================================================
+   ACCOUNT MODAL
+========================================================= */
+
+function rankPilotCreateAccountModal() {
+
+  if (
+    document.getElementById(
+      "rankpilotAccountModal"
+    )
+  ) {
+    return;
+  }
+
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+  modal.id =
+    "rankpilotAccountModal";
+
+  modal.innerHTML = `
+
+    <div
+      class="rp-account-overlay"
+    ></div>
+
+    <div
+      class="rp-account-panel"
+    >
+
+      <div
+        class="rp-account-header"
+      >
+
+        <div>
+
+          <span
+            class="rp-account-eyebrow"
+          >
+            RANKPILOT
+          </span>
+
+          <h2>
+            Cuenta
+          </h2>
+
+          <p>
+            Gestiona tu cuenta y tu plan.
+          </p>
+
+        </div>
+
+        <button
+          type="button"
+          class="rp-account-close"
+          id="rankpilotAccountClose"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div
+        id="rankpilotAccountContent"
+        class="rp-account-content"
+      ></div>
+
+    </div>
+  `;
+
+  document.body.appendChild(
+    modal
+  );
+
+  const close =
+    document.getElementById(
+      "rankpilotAccountClose"
+    );
+
+  if (close) {
+
+    close.addEventListener(
+      "click",
+      rankPilotCloseAccount
+    );
+
+  }
+
+  const overlay =
+    modal.querySelector(
+      ".rp-account-overlay"
+    );
+
+  if (overlay) {
+
+    overlay.addEventListener(
+      "click",
+      rankPilotCloseAccount
+    );
+
+  }
+}
+
+
+/* =========================================================
+   OPEN ACCOUNT
+========================================================= */
+
+function rankPilotOpenAccount() {
+
+  rankPilotCreateAccountModal();
+
+  const modal =
+    document.getElementById(
+      "rankpilotAccountModal"
+    );
+
+  if (!modal) {
+    return;
+  }
+
+  modal.classList.add(
+    "active"
+  );
+
+  rankPilotRenderAccount();
+}
+
+
+/* =========================================================
+   CLOSE ACCOUNT
+========================================================= */
+
+function rankPilotCloseAccount() {
+
+  const modal =
+    document.getElementById(
+      "rankpilotAccountModal"
+    );
+
+  if (!modal) {
+    return;
+  }
+
+  modal.classList.remove(
+    "active"
+  );
+}
+
+
+/* =========================================================
+   ACCOUNT CONTENT
+========================================================= */
+
+function rankPilotRenderAccount() {
+
+  const container =
+    document.getElementById(
+      "rankpilotAccountContent"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  const account =
+    rankPilotGetAccount();
+
+  const plan =
+    account.plan ||
+    "free";
+
+  const planName =
+    rankPilotGetPlanName(
+      plan
+    );
+
+  container.innerHTML = `
+
+    <div
+      class="rp-account-profile"
+    >
+
+      <div
+        class="rp-profile-avatar"
+      >
+        ${escapeHtml(
+          (account.name || "A")
+            .charAt(0)
+            .toUpperCase()
+        )}
+      </div>
+
+      <div
+        class="rp-profile-info"
+      >
+
+        <strong>
+          ${escapeHtml(
+            account.name ||
+            "Usuario"
+          )}
+        </strong>
+
+        <span>
+          ${
+            account.email
+              ? escapeHtml(
+                  account.email
+                )
+              : "Cuenta local"
+          }
+        </span>
+
+      </div>
+
+      <div
+        class="rp-current-plan"
+      >
+        ${planName}
+      </div>
+
+    </div>
+
+
+    <div
+      class="rp-account-section"
+    >
+
+      <div
+        class="rp-section-title-account"
+      >
+
+        <h3>
+          Tu plan
+        </h3>
+
+        <p>
+          Elige el nivel de RankPilot que mejor se adapte a tu proyecto.
+        </p>
+
+      </div>
+
+      <div
+        class="rp-plans-grid"
+      >
+
+        ${rankPilotRenderPlanCard(
+          "free"
+        )}
+
+        ${rankPilotRenderPlanCard(
+          "pro"
+        )}
+
+        ${rankPilotRenderPlanCard(
+          "business"
+        )}
+
+      </div>
+
+    </div>
+
+
+    <div
+      class="rp-account-section"
+    >
+
+      <div
+        class="rp-section-title-account"
+      >
+
+        <h3>
+          Perfil
+        </h3>
+
+        <p>
+          Esta información se guardará en tu cuenta.
+        </p>
+
+      </div>
+
+      <form
+        id="rankpilotProfileForm"
+        class="rp-profile-form"
+      >
+
+        <div
+          class="rp-profile-field"
+        >
+
+          <label>
+            Nombre
+          </label>
+
+          <input
+            type="text"
+            id="rankpilotAccountName"
+            value="${escapeHtml(
+              account.name || ""
+            )}"
+            placeholder="Tu nombre"
+          >
+
+        </div>
+
+        <div
+          class="rp-profile-field"
+        >
+
+          <label>
+            Email
+          </label>
+
+          <input
+            type="email"
+            id="rankpilotAccountEmail"
+            value="${escapeHtml(
+              account.email || ""
+            )}"
+            placeholder="tu@email.com"
+          >
+
+        </div>
+
+        <button
+          type="submit"
+          class="rp-save-profile"
+        >
+          Guardar cambios
+        </button>
+
+      </form>
+
+    </div>
+
+
+    <div
+      class="rp-account-section rp-account-future"
+    >
+
+      <span>
+        PRÓXIMAMENTE
+      </span>
+
+      <h3>
+        Cuenta RankPilot
+      </h3>
+
+      <p>
+        Registro, inicio de sesión, sincronización de proyectos,
+        pagos y facturación estarán conectados en la siguiente fase.
+      </p>
+
+    </div>
+
+  `;
+
+
+  const profileForm =
+    document.getElementById(
+      "rankpilotProfileForm"
+    );
+
+  if (profileForm) {
+
+    profileForm.addEventListener(
+      "submit",
+      function (event) {
+
+        event.preventDefault();
+
+        const name =
+          document.getElementById(
+            "rankpilotAccountName"
+          ).value.trim();
+
+        const email =
+          document.getElementById(
+            "rankpilotAccountEmail"
+          ).value.trim();
+
+        const current =
+          rankPilotGetAccount();
+
+        rankPilotSaveAccount({
+
+          name:
+            name ||
+            "Usuario",
+
+          email:
+            email,
+
+          plan:
+            current.plan ||
+            "free"
+
+        });
+
+        rankPilotRenderAccount();
+
+      }
+    );
+
+  }
+}
+
+
+/* =========================================================
+   PLAN CARD
+========================================================= */
+
+function rankPilotRenderPlanCard(
+  plan
+) {
+
+  const account =
+    rankPilotGetAccount();
+
+  const currentPlan =
+    account.plan ||
+    "free";
+
+  const isCurrent =
+    currentPlan ===
+    plan;
+
+  const data = {
+
+    free: {
+
+      name: "Free",
+
+      price: "0€",
+
+      period: "/mes",
+
+      description:
+        "Empieza a analizar webs y descubre oportunidades SEO.",
+
+      features: [
+
+        "1 proyecto",
+
+        "Hasta 10 análisis",
+
+        "SEO Score",
+
+        "SEO Action Plan",
+
+        "Keyword Intelligence",
+
+        "Historial básico"
+
+      ]
+
+    },
+
+    pro: {
+
+      name: "Pro",
+
+      price: "19€",
+
+      period: "/mes",
+
+      description:
+        "Para profesionales y negocios que quieren crecer.",
+
+      features: [
+
+        "Hasta 10 proyectos",
+
+        "Hasta 100 análisis",
+
+        "Todo lo incluido en Free",
+
+        "Análisis de competidores",
+
+        "Informes SEO PDF",
+
+        "Funciones SEO avanzadas",
+
+        "Seguimiento de evolución"
+
+      ]
+
+    },
+
+    business: {
+
+      name: "Business",
+
+      price: "49€",
+
+      period: "/mes",
+
+      description:
+        "Para agencias y equipos que gestionan múltiples webs.",
+
+      features: [
+
+        "Proyectos ilimitados",
+
+        "Análisis ilimitados",
+
+        "Todo lo incluido en Pro",
+
+        "Funciones avanzadas",
+
+        "Gestión de equipos",
+
+        "Preparado para agencias"
+
+      ]
+
+    }
+
+  };
+
+  const selected =
+    data[plan] ||
+    data.free;
+
+  return `
+
+    <div
+      class="
+        rp-plan-card
+        ${
+          plan === "pro"
+            ? "rp-plan-featured"
+            : ""
+        }
+        ${
+          isCurrent
+            ? "rp-plan-current"
+            : ""
+        }
+      "
+    >
+
+      ${
+        plan === "pro"
+          ? `
+            <div
+              class="rp-plan-badge"
+            >
+              MÁS POPULAR
+            </div>
+          `
+          : ""
+      }
+
+      <div
+        class="rp-plan-name"
+      >
+        ${selected.name}
+      </div>
+
+      <div
+        class="rp-plan-price"
+      >
+
+        <strong>
+          ${selected.price}
+        </strong>
+
+        <span>
+          ${selected.period}
+        </span>
+
+      </div>
+
+      <p
+        class="rp-plan-description"
+      >
+        ${selected.description}
+      </p>
+
+      <div
+        class="rp-plan-features"
+      >
+
+        ${selected.features
+          .map(
+            (feature) => `
+              <div
+                class="rp-plan-feature"
+              >
+
+                <span>
+                  ✓
+                </span>
+
+                <span>
+                  ${feature}
+                </span>
+
+              </div>
+            `
+          )
+          .join("")}
+
+      </div>
+
+      ${
+        isCurrent
+          ? `
+            <button
+              type="button"
+              class="rp-plan-button rp-plan-active"
+              disabled
+            >
+              Plan actual
+            </button>
+          `
+          : `
+            <button
+              type="button"
+              class="rp-plan-button"
+              onclick="rankPilotSelectPlan('${plan}')"
+            >
+              ${
+                plan === "free"
+                  ? "Cambiar a Free"
+                  : "Elegir " +
+                    selected.name
+              }
+            </button>
+          `
+      }
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   SELECT PLAN
+========================================================= */
+
+function rankPilotSelectPlan(
+  plan
+) {
+
+  const account =
+    rankPilotGetAccount();
+
+  /*
+   De momento NO cobramos.
+   Esto solamente cambia el plan local
+   para probar toda la interfaz.
+  */
+
+  rankPilotSaveAccount({
+
+    name:
+      account.name ||
+      "Usuario",
+
+    email:
+      account.email ||
+      "",
+
+    plan:
+      plan
+
+  });
+
+  rankPilotRenderAccount();
+
+  /*
+   Cuando conectemos Stripe,
+   esta función será sustituida por
+   el checkout real.
+  */
+
+  console.log(
+    "RankPilot plan seleccionado:",
+    plan
+  );
+}
+
+
+/* =========================================================
+   PLAN CSS
+========================================================= */
+
+function rankPilotInjectAccountStyles() {
+
+  if (
+    document.getElementById(
+      "rankpilotAccountStyles"
+    )
+  ) {
+    return;
+  }
+
+  const style =
+    document.createElement(
+      "style"
+    );
+
+  style.id =
+    "rankpilotAccountStyles";
+
+  style.textContent = `
+
+    /* ==========================================
+       ACCOUNT BUTTON
+    ========================================== */
+
+    #rankpilotAccountButton {
+
+      position: fixed;
+
+      top: 20px;
+
+      left: 20px;
+
+      z-index: 9997;
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 8px;
+
+      padding:
+        8px 12px 8px 8px;
+
+      border:
+        1px solid #e5e7eb;
+
+      border-radius: 12px;
+
+      background:
+        #ffffff;
+
+      color:
+        #111827;
+
+      box-shadow:
+        0 8px 25px
+        rgba(
+          0,
+          0,
+          0,
+          0.08
+        );
+
+      font-size: 13px;
+
+      font-weight: 700;
+
+      cursor: pointer;
+
+      transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+
+    }
+
+    #rankpilotAccountButton:hover {
+
+      transform:
+        translateY(-1px);
+
+      box-shadow:
+        0 12px 30px
+        rgba(
+          0,
+          0,
+          0,
+          0.12
+        );
+
+    }
+
+    .rp-account-avatar {
+
+      width: 28px;
+
+      height: 28px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      border-radius: 9px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size: 12px;
+
+      font-weight: 800;
+
+    }
+
+
+    /* ==========================================
+       ACCOUNT MODAL
+    ========================================== */
+
+    #rankpilotAccountModal {
+
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 10000;
+
+      display: none;
+
+    }
+
+    #rankpilotAccountModal.active {
+
+      display: block;
+
+    }
+
+    .rp-account-overlay {
+
+      position: absolute;
+
+      inset: 0;
+
+      background:
+        rgba(
+          15,
+          23,
+          42,
+          0.58
+        );
+
+      backdrop-filter:
+        blur(7px);
+
+    }
+
+    .rp-account-panel {
+
+      position: absolute;
+
+      top: 4vh;
+
+      left: 50%;
+
+      transform:
+        translateX(-50%);
+
+      width:
+        min(
+          1100px,
+          94vw
+        );
+
+      height:
+        92vh;
+
+      overflow-y:
+        auto;
+
+      background:
+        #ffffff;
+
+      border-radius:
+        22px;
+
+      box-shadow:
+        0 30px 80px
+        rgba(
+          0,
+          0,
+          0,
+          0.25
+        );
+
+    }
+
+    .rp-account-header {
+
+      position: sticky;
+
+      top: 0;
+
+      z-index: 2;
+
+      display: flex;
+
+      justify-content:
+        space-between;
+
+      gap: 20px;
+
+      padding:
+        28px 30px;
+
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          0.96
+        );
+
+      backdrop-filter:
+        blur(10px);
+
+      border-bottom:
+        1px solid #e5e7eb;
+
+    }
+
+    .rp-account-eyebrow {
+
+      display:
+        block;
+
+      margin-bottom:
+        6px;
+
+      color:
+        #6b7280;
+
+      font-size:
+        11px;
+
+      font-weight:
+        800;
+
+      letter-spacing:
+        0.14em;
+
+    }
+
+    .rp-account-header h2 {
+
+      margin:
+        0;
+
+      color:
+        #111827;
+
+      font-size:
+        28px;
+
+    }
+
+    .rp-account-header p {
+
+      margin:
+        7px 0 0;
+
+      color:
+        #6b7280;
+
+      font-size:
+        14px;
+
+    }
+
+    .rp-account-close {
+
+      width:
+        40px;
+
+      height:
+        40px;
+
+      border:
+        0;
+
+      border-radius:
+        10px;
+
+      background:
+        #f3f4f6;
+
+      color:
+        #111827;
+
+      font-size:
+        25px;
+
+      cursor:
+        pointer;
+
+    }
+
+    .rp-account-content {
+
+      padding:
+        30px;
+
+    }
+
+
+    /* ==========================================
+       PROFILE
+    ========================================== */
+
+    .rp-account-profile {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        14px;
+
+      padding:
+        18px;
+
+      margin-bottom:
+        32px;
+
+      border:
+        1px solid #e5e7eb;
+
+      border-radius:
+        16px;
+
+      background:
+        #f9fafb;
+
+    }
+
+    .rp-profile-avatar {
+
+      width:
+        50px;
+
+      height:
+        50px;
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      justify-content:
+        center;
+
+      border-radius:
+        14px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size:
+        20px;
+
+      font-weight:
+        800;
+
+    }
+
+    .rp-profile-info {
+
+      flex:
+        1;
+
+      min-width:
+        0;
+
+    }
+
+    .rp-profile-info strong {
+
+      display:
+        block;
+
+      color:
+        #111827;
+
+      font-size:
+        15px;
+
+    }
+
+    .rp-profile-info span {
+
+      display:
+        block;
+
+      margin-top:
+        3px;
+
+      color:
+        #6b7280;
+
+      font-size:
+        12px;
+
+    }
+
+    .rp-current-plan {
+
+      padding:
+        7px 11px;
+
+      border-radius:
+        999px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size:
+        11px;
+
+      font-weight:
+        800;
+
+    }
+
+
+    /* ==========================================
+       SECTIONS
+    ========================================== */
+
+    .rp-account-section {
+
+      margin-top:
+        32px;
+
+    }
+
+    .rp-section-title-account {
+
+      margin-bottom:
+        18px;
+
+    }
+
+    .rp-section-title-account h3 {
+
+      margin:
+        0;
+
+      color:
+        #111827;
+
+      font-size:
+        20px;
+
+    }
+
+    .rp-section-title-account p {
+
+      margin:
+        5px 0 0;
+
+      color:
+        #6b7280;
+
+      font-size:
+        13px;
+
+    }
+
+
+    /* ==========================================
+       PLANS
+    ========================================== */
+
+    .rp-plans-grid {
+
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(
+          3,
+          minmax(
+            0,
+            1fr
+          )
+        );
+
+      gap:
+        18px;
+
+    }
+
+    .rp-plan-card {
+
+      position:
+        relative;
+
+      display:
+        flex;
+
+      flex-direction:
+        column;
+
+      padding:
+        24px;
+
+      border:
+        1px solid #e5e7eb;
+
+      border-radius:
+        18px;
+
+      background:
+        #ffffff;
+
+      transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+
+    }
+
+    .rp-plan-card:hover {
+
+      transform:
+        translateY(-2px);
+
+      box-shadow:
+        0 15px 35px
+        rgba(
+          0,
+          0,
+          0,
+          0.07
+        );
+
+    }
+
+    .rp-plan-featured {
+
+      border:
+        2px solid #111827;
+
+    }
+
+    .rp-plan-current {
+
+      background:
+        #f9fafb;
+
+    }
+
+    .rp-plan-badge {
+
+      position:
+        absolute;
+
+      top:
+        -11px;
+
+      left:
+        20px;
+
+      padding:
+        5px 9px;
+
+      border-radius:
+        999px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size:
+        9px;
+
+      font-weight:
+        800;
+
+      letter-spacing:
+        0.05em;
+
+    }
+
+    .rp-plan-name {
+
+      color:
+        #111827;
+
+      font-size:
+        18px;
+
+      font-weight:
+        800;
+
+    }
+
+    .rp-plan-price {
+
+      display:
+        flex;
+
+      align-items:
+        baseline;
+
+      gap:
+        4px;
+
+      margin-top:
+        15px;
+
+    }
+
+    .rp-plan-price strong {
+
+      color:
+        #111827;
+
+      font-size:
+        38px;
+
+      line-height:
+        1;
+
+    }
+
+    .rp-plan-price span {
+
+      color:
+        #9ca3af;
+
+      font-size:
+        12px;
+
+    }
+
+    .rp-plan-description {
+
+      min-height:
+        48px;
+
+      margin:
+        14px 0 20px;
+
+      color:
+        #6b7280;
+
+      font-size:
+        13px;
+
+      line-height:
+        1.55;
+
+    }
+
+    .rp-plan-features {
+
+      display:
+        grid;
+
+      gap:
+        10px;
+
+      margin-bottom:
+        24px;
+
+      flex:
+        1;
+
+    }
+
+    .rp-plan-feature {
+
+      display:
+        flex;
+
+      align-items:
+        flex-start;
+
+      gap:
+        8px;
+
+      color:
+        #374151;
+
+      font-size:
+        12px;
+
+      line-height:
+        1.4;
+
+    }
+
+    .rp-plan-feature > span:first-child {
+
+      color:
+        #111827;
+
+      font-weight:
+        800;
+
+    }
+
+    .rp-plan-button {
+
+      width:
+        100%;
+
+      padding:
+        11px;
+
+      border:
+        1px solid #111827;
+
+      border-radius:
+        10px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size:
+        13px;
+
+      font-weight:
+        700;
+
+      cursor:
+        pointer;
+
+    }
+
+    .rp-plan-button:hover {
+
+      background:
+        #1f2937;
+
+    }
+
+    .rp-plan-active {
+
+      background:
+        #e5e7eb;
+
+      border-color:
+        #e5e7eb;
+
+      color:
+        #6b7280;
+
+      cursor:
+        default;
+
+    }
+
+
+    /* ==========================================
+       PROFILE FORM
+    ========================================== */
+
+    .rp-profile-form {
+
+      display:
+        grid;
+
+      grid-template-columns:
+        1fr 1fr auto;
+
+      align-items:
+        end;
+
+      gap:
+        14px;
+
+    }
+
+    .rp-profile-field label {
+
+      display:
+        block;
+
+      margin-bottom:
+        6px;
+
+      color:
+        #374151;
+
+      font-size:
+        12px;
+
+      font-weight:
+        700;
+
+    }
+
+    .rp-profile-field input {
+
+      width:
+        100%;
+
+      box-sizing:
+        border-box;
+
+      padding:
+        11px 12px;
+
+      border:
+        1px solid #d1d5db;
+
+      border-radius:
+        10px;
+
+      outline:
+        none;
+
+      font-size:
+        13px;
+
+    }
+
+    .rp-profile-field input:focus {
+
+      border-color:
+        #111827;
+
+    }
+
+    .rp-save-profile {
+
+      padding:
+        11px 15px;
+
+      border:
+        0;
+
+      border-radius:
+        10px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size:
+        13px;
+
+      font-weight:
+        700;
+
+      cursor:
+        pointer;
+
+    }
+
+
+    /* ==========================================
+       FUTURE
+    ========================================== */
+
+    .rp-account-future {
+
+      padding:
+        20px;
+
+      border:
+        1px dashed #d1d5db;
+
+      border-radius:
+        15px;
+
+      background:
+        #f9fafb;
+
+    }
+
+    .rp-account-future > span {
+
+      color:
+        #6b7280;
+
+      font-size:
+        10px;
+
+      font-weight:
+        800;
+
+      letter-spacing:
+        0.1em;
+
+    }
+
+    .rp-account-future h3 {
+
+      margin:
+        7px 0 5px;
+
+      color:
+        #111827;
+
+      font-size:
+        16px;
+
+    }
+
+    .rp-account-future p {
+
+      margin:
+        0;
+
+      color:
+        #6b7280;
+
+      font-size:
+        13px;
+
+      line-height:
+        1.5;
+
+    }
+
+
+    /* ==========================================
+       MOBILE
+    ========================================== */
+
+    @media (
+      max-width: 760px
+    ) {
+
+      #rankpilotAccountButton {
+
+        top:
+          12px;
+
+        left:
+          12px;
+
+      }
+
+      .rp-account-panel {
+
+        top:
+          0;
+
+        left:
+          0;
+
+        transform:
+          none;
+
+        width:
+          100vw;
+
+        height:
+          100vh;
+
+        border-radius:
+          0;
+
+      }
+
+      .rp-account-header {
+
+        padding:
+          20px;
+
+      }
+
+      .rp-account-content {
+
+        padding:
+          20px;
+
+      }
+
+      .rp-plans-grid {
+
+        grid-template-columns:
+          1fr;
+
+      }
+
+      .rp-profile-form {
+
+        grid-template-columns:
+          1fr;
+
+      }
+
+      .rp-account-profile {
+
+        flex-wrap:
+          wrap;
+
+      }
+
+      .rp-current-plan {
+
+        margin-left:
+          64px;
+
+      }
+
+    }
+
+  `;
+
+  document.head.appendChild(
+    style
+  );
+}
+
+
+/* =========================================================
+   INITIALIZE ACCOUNT
+========================================================= */
+
+function rankPilotInitializeAccount() {
+
+  rankPilotInjectAccountStyles();
+
+  rankPilotCreateAccountButton();
+
+  rankPilotCreateAccountModal();
+
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+if (
+  document.readyState ===
+  "loading"
+) {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    rankPilotInitializeAccount
+  );
+
+} else {
+
+  rankPilotInitializeAccount();
+
+}
+
+
+/* =========================================================
+   GLOBALS
+========================================================= */
+
+window.rankPilotOpenAccount =
+  rankPilotOpenAccount;
+
+window.rankPilotCloseAccount =
+  rankPilotCloseAccount;
+
+window.rankPilotSelectPlan =
+  rankPilotSelectPlan;
+
+window.rankPilotGetAccount =
+  rankPilotGetAccount;
+
+window.rankPilotHasFeature =
+  rankPilotHasFeature;
