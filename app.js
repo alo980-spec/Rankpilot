@@ -11356,3 +11356,76 @@ window.rankPilotHasFeature =
     }
 
 })();
+
+/* =========================================================
+   RANKPILOT — ELIMINAR BOTÓN DE LOGIN FLOTANTE ANTIGUO
+   ========================================================= */
+
+(function removeOldFloatingLogin() {
+
+    function removeFloatingLogin() {
+
+        // IDs conocidos del antiguo botón
+        const idsToRemove = [
+            "rankpilotAccountButton",
+            "rankpilotLoginButton",
+            "floatingLoginButton"
+        ];
+
+        idsToRemove.forEach(function(id) {
+            const element = document.getElementById(id);
+
+            // IMPORTANTE:
+            // NO tocar #loginBtn porque es el botón correcto del header
+            if (element && id !== "loginBtn") {
+                element.remove();
+            }
+        });
+
+        // Buscar posibles botones flotantes creados por versiones anteriores
+        document.querySelectorAll("button, a").forEach(function(element) {
+
+            if (element.id === "loginBtn") return;
+
+            const text = (element.textContent || "").trim().toLowerCase();
+
+            const rect = element.getBoundingClientRect();
+
+            const looksLikeLogin =
+                text === "iniciar sesión" ||
+                text === "iniciar sesion" ||
+                text === "login";
+
+            const looksFloating =
+                rect.position === "fixed" ||
+                getComputedStyle(element).position === "fixed";
+
+            if (looksLikeLogin && looksFloating) {
+                element.remove();
+            }
+        });
+
+        // Eliminar contenedores antiguos claramente identificados
+        document.querySelectorAll(
+            "#rankpilotAccountButtonContainer, " +
+            ".rankpilot-floating-login, " +
+            ".rankpilot-login-floating, " +
+            ".floating-login"
+        ).forEach(function(element) {
+            element.remove();
+        });
+    }
+
+    // Ejecutar al cargar
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", removeFloatingLogin);
+    } else {
+        removeFloatingLogin();
+    }
+
+    // Ejecutarlo otra vez por si otro módulo lo crea después
+    setTimeout(removeFloatingLogin, 500);
+    setTimeout(removeFloatingLogin, 1500);
+    setTimeout(removeFloatingLogin, 3000);
+
+})();
