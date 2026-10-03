@@ -8441,3 +8441,992 @@ window.rankPilotGetAccount =
 
 window.rankPilotHasFeature =
   rankPilotHasFeature;
+
+/* =========================================================
+   RANKPILOT — LOGIN / USER MENU
+   ========================================================= */
+
+(function () {
+  "use strict";
+
+  function initRankPilotLoginUI() {
+    /* -----------------------------------------------------
+       1. OCULTAR EL ANTIGUO BOTÓN "CUENTA"
+       ----------------------------------------------------- */
+
+    const oldAccountButton = document.getElementById(
+      "rankpilotAccountButton"
+    );
+
+    if (oldAccountButton) {
+      oldAccountButton.style.display = "none";
+    }
+
+    /* -----------------------------------------------------
+       2. CREAR BOTÓN "INICIAR SESIÓN"
+       ----------------------------------------------------- */
+
+    if (document.getElementById("rankpilotLoginButton")) {
+      return;
+    }
+
+    const loginButton = document.createElement("button");
+
+    loginButton.id = "rankpilotLoginButton";
+    loginButton.type = "button";
+    loginButton.textContent = "Iniciar sesión";
+
+    document.body.appendChild(loginButton);
+
+    /* -----------------------------------------------------
+       3. CREAR MENÚ DE USUARIO
+       ----------------------------------------------------- */
+
+    const userMenu = document.createElement("div");
+
+    userMenu.id = "rankpilotUserMenu";
+
+    userMenu.innerHTML = `
+      <button type="button" id="rankpilotUserMenuDashboard">
+        📊 Dashboard
+      </button>
+
+      <button type="button" id="rankpilotUserMenuProjects">
+        📁 Mis proyectos
+      </button>
+
+      <button type="button" id="rankpilotUserMenuHistory">
+        📈 Historial
+      </button>
+
+      <button type="button" id="rankpilotUserMenuAccount">
+        👤 Mi cuenta
+      </button>
+
+      <div class="rankpilot-menu-divider"></div>
+
+      <button type="button" id="rankpilotUserMenuLogout">
+        🚪 Cerrar sesión
+      </button>
+    `;
+
+    document.body.appendChild(userMenu);
+
+    /* -----------------------------------------------------
+       4. ESTADO ACTUAL
+       ----------------------------------------------------- */
+
+    function getCurrentAccount() {
+      try {
+        if (typeof rankPilotGetAccount === "function") {
+          return rankPilotGetAccount();
+        }
+
+        const saved = localStorage.getItem(
+          "rankpilot_account_v1"
+        );
+
+        return saved ? JSON.parse(saved) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function isLoggedIn() {
+      const account = getCurrentAccount();
+
+      return !!(
+        account &&
+        (
+          account.loggedIn === true ||
+          account.isLoggedIn === true ||
+          account.email
+        )
+      );
+    }
+
+    /* -----------------------------------------------------
+       5. ACTUALIZAR BOTÓN
+       ----------------------------------------------------- */
+
+    function updateLoginButton() {
+      const account = getCurrentAccount();
+
+      if (isLoggedIn()) {
+        let name = "Mi cuenta";
+
+        if (account && account.name) {
+          name = account.name.split(" ")[0];
+        }
+
+        loginButton.innerHTML = `
+          ${escapeHtml(name)}
+          <span class="rankpilot-login-arrow">▾</span>
+        `;
+
+        loginButton.classList.add("logged-in");
+      } else {
+        loginButton.textContent = "Iniciar sesión";
+        loginButton.classList.remove("logged-in");
+      }
+    }
+
+    /* -----------------------------------------------------
+       6. ABRIR / CERRAR MENÚ
+       ----------------------------------------------------- */
+
+    function closeUserMenu() {
+      userMenu.classList.remove("open");
+    }
+
+    function toggleUserMenu() {
+      if (!isLoggedIn()) {
+        openLoginModal();
+        return;
+      }
+
+      userMenu.classList.toggle("open");
+    }
+
+    loginButton.addEventListener("click", function (event) {
+      event.stopPropagation();
+      toggleUserMenu();
+    });
+
+    document.addEventListener("click", function (event) {
+      if (
+        !userMenu.contains(event.target) &&
+        !loginButton.contains(event.target)
+      ) {
+        closeUserMenu();
+      }
+    });
+
+    /* -----------------------------------------------------
+       7. LOGIN
+       ----------------------------------------------------- */
+
+    function openLoginModal() {
+      closeUserMenu();
+
+      /*
+       * Si ya tenemos el modal de cuenta que creamos
+       * anteriormente, lo utilizamos.
+       */
+
+      const accountModal = document.getElementById(
+        "rankpilotAccountModal"
+      );
+
+      if (accountModal) {
+        accountModal.classList.add("open");
+
+        accountModal.style.display = "flex";
+
+        return;
+      }
+
+      /*
+       * Fallback: crear un modal de login sencillo.
+       */
+
+      createLoginModal();
+    }
+
+    function createLoginModal() {
+      if (document.getElementById("rankpilotLoginModal")) {
+        const modal = document.getElementById(
+          "rankpilotLoginModal"
+        );
+
+        modal.classList.add("open");
+        modal.style.display = "flex";
+
+        return;
+      }
+
+      const modal = document.createElement("div");
+
+      modal.id = "rankpilotLoginModal";
+
+      modal.innerHTML = `
+        <div class="rankpilot-login-overlay"></div>
+
+        <div class="rankpilot-login-card">
+
+          <button
+            type="button"
+            class="rankpilot-login-close"
+            id="rankpilotLoginClose"
+          >
+            ×
+          </button>
+
+          <div class="rankpilot-login-logo">
+            RANK<span>PILOT</span>
+          </div>
+
+          <h2>Iniciar sesión</h2>
+
+          <p class="rankpilot-login-subtitle">
+            Accede a tu espacio de RankPilot.
+          </p>
+
+          <form id="rankpilotLoginForm">
+
+            <label>
+              Email
+              <input
+                type="email"
+                id="rankpilotLoginEmail"
+                placeholder="tu@email.com"
+                required
+              >
+            </label>
+
+            <label>
+              Contraseña
+              <input
+                type="password"
+                id="rankpilotLoginPassword"
+                placeholder="••••••••"
+                required
+              >
+            </label>
+
+            <button
+              type="submit"
+              class="rankpilot-login-submit"
+            >
+              Iniciar sesión
+            </button>
+
+          </form>
+
+          <p class="rankpilot-login-register">
+            ¿No tienes cuenta?
+            <button type="button" id="rankpilotRegisterButton">
+              Regístrate
+            </button>
+          </p>
+
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      modal.style.display = "flex";
+
+      setTimeout(function () {
+        modal.classList.add("open");
+      }, 10);
+
+      const closeButton = document.getElementById(
+        "rankpilotLoginClose"
+      );
+
+      const overlay = modal.querySelector(
+        ".rankpilot-login-overlay"
+      );
+
+      closeButton.addEventListener("click", function () {
+        closeLoginModal();
+      });
+
+      overlay.addEventListener("click", function () {
+        closeLoginModal();
+      });
+
+      document
+        .getElementById("rankpilotLoginForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          const email = document.getElementById(
+            "rankpilotLoginEmail"
+          ).value.trim();
+
+          if (!email) {
+            return;
+          }
+
+          /*
+           * DEMO LOCAL
+           *
+           * Más adelante esto se sustituirá por nuestro
+           * login real conectado al backend.
+           */
+
+          const existingAccount =
+            getCurrentAccount() || {};
+
+          const account = {
+            ...existingAccount,
+            email: email,
+            name:
+              existingAccount.name ||
+              email.split("@")[0],
+            loggedIn: true
+          };
+
+          localStorage.setItem(
+            "rankpilot_account_v1",
+            JSON.stringify(account)
+          );
+
+          closeLoginModal();
+
+          updateLoginButton();
+
+          showLoginNotification(
+            "Sesión iniciada correctamente"
+          );
+        });
+
+      document
+        .getElementById("rankpilotRegisterButton")
+        .addEventListener("click", function () {
+          alert(
+            "El registro real lo conectaremos en la siguiente fase."
+          );
+        });
+    }
+
+    function closeLoginModal() {
+      const modal = document.getElementById(
+        "rankpilotLoginModal"
+      );
+
+      if (!modal) {
+        return;
+      }
+
+      modal.classList.remove("open");
+
+      setTimeout(function () {
+        modal.style.display = "none";
+      }, 200);
+    }
+
+    /* -----------------------------------------------------
+       8. DASHBOARD
+       ----------------------------------------------------- */
+
+    const dashboardButton =
+      document.getElementById(
+        "rankpilotUserMenuDashboard"
+      );
+
+    if (dashboardButton) {
+      dashboardButton.addEventListener(
+        "click",
+        function () {
+          closeUserMenu();
+
+          if (
+            typeof rankPilotOpenDashboard ===
+            "function"
+          ) {
+            rankPilotOpenDashboard();
+          }
+        }
+      );
+    }
+
+    /* -----------------------------------------------------
+       9. PROYECTOS
+       ----------------------------------------------------- */
+
+    const projectsButton =
+      document.getElementById(
+        "rankpilotUserMenuProjects"
+      );
+
+    if (projectsButton) {
+      projectsButton.addEventListener(
+        "click",
+        function () {
+          closeUserMenu();
+
+          if (
+            typeof rankPilotOpenDashboard ===
+            "function"
+          ) {
+            rankPilotOpenDashboard();
+          }
+        }
+      );
+    }
+
+    /* -----------------------------------------------------
+       10. HISTORIAL
+       ----------------------------------------------------- */
+
+    const historyButton =
+      document.getElementById(
+        "rankpilotUserMenuHistory"
+      );
+
+    if (historyButton) {
+      historyButton.addEventListener(
+        "click",
+        function () {
+          closeUserMenu();
+
+          if (
+            typeof rankPilotOpenDashboard ===
+            "function"
+          ) {
+            rankPilotOpenDashboard();
+          }
+        }
+      );
+    }
+
+    /* -----------------------------------------------------
+       11. MI CUENTA
+       ----------------------------------------------------- */
+
+    const accountButton =
+      document.getElementById(
+        "rankpilotUserMenuAccount"
+      );
+
+    if (accountButton) {
+      accountButton.addEventListener(
+        "click",
+        function () {
+          closeUserMenu();
+
+          const modal =
+            document.getElementById(
+              "rankpilotAccountModal"
+            );
+
+          if (modal) {
+            modal.style.display = "flex";
+            modal.classList.add("open");
+          }
+        }
+      );
+    }
+
+    /* -----------------------------------------------------
+       12. CERRAR SESIÓN
+       ----------------------------------------------------- */
+
+    const logoutButton =
+      document.getElementById(
+        "rankpilotUserMenuLogout"
+      );
+
+    if (logoutButton) {
+      logoutButton.addEventListener(
+        "click",
+        function () {
+          closeUserMenu();
+
+          try {
+            const account = getCurrentAccount();
+
+            if (account) {
+              account.loggedIn = false;
+
+              localStorage.setItem(
+                "rankpilot_account_v1",
+                JSON.stringify(account)
+              );
+            }
+          } catch (error) {
+            console.error(
+              "Error cerrando sesión:",
+              error
+            );
+          }
+
+          updateLoginButton();
+
+          showLoginNotification(
+            "Sesión cerrada"
+          );
+        }
+      );
+    }
+
+    /* -----------------------------------------------------
+       13. NOTIFICACIÓN
+       ----------------------------------------------------- */
+
+    function showLoginNotification(message) {
+      const existing =
+        document.getElementById(
+          "rankpilotLoginNotification"
+        );
+
+      if (existing) {
+        existing.remove();
+      }
+
+      const notification =
+        document.createElement("div");
+
+      notification.id =
+        "rankpilotLoginNotification";
+
+      notification.textContent = message;
+
+      document.body.appendChild(notification);
+
+      setTimeout(function () {
+        notification.classList.add("show");
+      }, 10);
+
+      setTimeout(function () {
+        notification.classList.remove("show");
+
+        setTimeout(function () {
+          notification.remove();
+        }, 250);
+      }, 2500);
+    }
+
+    /* -----------------------------------------------------
+       14. CSS
+       ----------------------------------------------------- */
+
+    if (
+      !document.getElementById(
+        "rankpilotLoginStyles"
+      )
+    ) {
+      const style =
+        document.createElement("style");
+
+      style.id = "rankpilotLoginStyles";
+
+      style.textContent = `
+
+        /* =========================================
+           LOGIN BUTTON
+           ========================================= */
+
+        #rankpilotLoginButton {
+          position: fixed;
+          top: 22px;
+          right: 28px;
+          z-index: 9998;
+
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(15, 23, 42, 0.92);
+          color: #ffffff;
+
+          padding: 10px 17px;
+          border-radius: 10px;
+
+          font-size: 14px;
+          font-weight: 600;
+
+          cursor: pointer;
+
+          backdrop-filter: blur(12px);
+
+          transition:
+            transform 0.2s ease,
+            background 0.2s ease,
+            border-color 0.2s ease;
+        }
+
+        #rankpilotLoginButton:hover {
+          transform: translateY(-1px);
+          background: rgba(30, 41, 59, 0.98);
+          border-color: rgba(255,255,255,0.22);
+        }
+
+        #rankpilotLoginButton.logged-in {
+          padding-right: 13px;
+        }
+
+        .rankpilot-login-arrow {
+          margin-left: 7px;
+          font-size: 11px;
+          opacity: 0.75;
+        }
+
+        /* =========================================
+           USER DROPDOWN
+           ========================================= */
+
+        #rankpilotUserMenu {
+          position: fixed;
+          top: 66px;
+          right: 28px;
+
+          width: 205px;
+
+          background: rgba(15, 23, 42, 0.98);
+          border: 1px solid rgba(255,255,255,0.10);
+
+          border-radius: 14px;
+
+          padding: 7px;
+
+          box-shadow:
+            0 20px 50px rgba(0,0,0,0.30);
+
+          backdrop-filter: blur(18px);
+
+          z-index: 9997;
+
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(-8px);
+
+          transition:
+            opacity 0.18s ease,
+            transform 0.18s ease,
+            visibility 0.18s ease;
+        }
+
+        #rankpilotUserMenu.open {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+
+        #rankpilotUserMenu button {
+          width: 100%;
+
+          border: none;
+          background: transparent;
+
+          color: #e5e7eb;
+
+          text-align: left;
+
+          padding: 10px 11px;
+
+          border-radius: 9px;
+
+          font-size: 13px;
+
+          cursor: pointer;
+
+          transition:
+            background 0.15s ease,
+            color 0.15s ease;
+        }
+
+        #rankpilotUserMenu button:hover {
+          background: rgba(255,255,255,0.07);
+          color: #ffffff;
+        }
+
+        .rankpilot-menu-divider {
+          height: 1px;
+          background: rgba(255,255,255,0.08);
+          margin: 6px 4px;
+        }
+
+        /* =========================================
+           LOGIN MODAL
+           ========================================= */
+
+        #rankpilotLoginModal {
+          position: fixed;
+          inset: 0;
+
+          z-index: 10000;
+
+          display: none;
+
+          align-items: center;
+          justify-content: center;
+        }
+
+        #rankpilotLoginModal.open {
+          display: flex !important;
+        }
+
+        .rankpilot-login-overlay {
+          position: absolute;
+          inset: 0;
+
+          background: rgba(2, 6, 23, 0.72);
+
+          backdrop-filter: blur(7px);
+        }
+
+        .rankpilot-login-card {
+          position: relative;
+
+          width: min(420px, calc(100% - 32px));
+
+          background: #ffffff;
+
+          border-radius: 20px;
+
+          padding: 36px;
+
+          box-shadow:
+            0 30px 80px rgba(0,0,0,0.35);
+
+          z-index: 2;
+
+          animation:
+            rankpilotLoginAppear
+            0.22s ease;
+        }
+
+        @keyframes rankpilotLoginAppear {
+          from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .rankpilot-login-close {
+          position: absolute;
+
+          top: 14px;
+          right: 16px;
+
+          border: none;
+          background: transparent;
+
+          font-size: 25px;
+          line-height: 1;
+
+          color: #64748b;
+
+          cursor: pointer;
+        }
+
+        .rankpilot-login-logo {
+          font-size: 21px;
+          font-weight: 800;
+          letter-spacing: -0.5px;
+          color: #111827;
+          margin-bottom: 24px;
+        }
+
+        .rankpilot-login-logo span {
+          font-weight: 400;
+        }
+
+        .rankpilot-login-card h2 {
+          margin: 0 0 7px;
+          font-size: 28px;
+          color: #111827;
+        }
+
+        .rankpilot-login-subtitle {
+          margin: 0 0 25px;
+          color: #64748b;
+          font-size: 14px;
+        }
+
+        .rankpilot-login-card label {
+          display: block;
+
+          margin-bottom: 17px;
+
+          font-size: 13px;
+          font-weight: 600;
+
+          color: #334155;
+        }
+
+        .rankpilot-login-card input {
+          display: block;
+
+          width: 100%;
+
+          box-sizing: border-box;
+
+          margin-top: 7px;
+
+          padding: 12px 13px;
+
+          border: 1px solid #dbe2ea;
+          border-radius: 9px;
+
+          font-size: 14px;
+
+          outline: none;
+
+          transition:
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+        }
+
+        .rankpilot-login-card input:focus {
+          border-color: #64748b;
+
+          box-shadow:
+            0 0 0 3px rgba(100,116,139,0.12);
+        }
+
+        .rankpilot-login-submit {
+          width: 100%;
+
+          border: none;
+
+          background: #111827;
+          color: #ffffff;
+
+          padding: 13px;
+
+          border-radius: 10px;
+
+          font-size: 14px;
+          font-weight: 700;
+
+          cursor: pointer;
+
+          margin-top: 4px;
+
+          transition:
+            transform 0.15s ease,
+            background 0.15s ease;
+        }
+
+        .rankpilot-login-submit:hover {
+          background: #1f2937;
+          transform: translateY(-1px);
+        }
+
+        .rankpilot-login-register {
+          text-align: center;
+
+          margin: 20px 0 0;
+
+          color: #64748b;
+
+          font-size: 13px;
+        }
+
+        .rankpilot-login-register button {
+          border: none;
+          background: none;
+
+          color: #111827;
+
+          font-weight: 700;
+
+          cursor: pointer;
+
+          padding: 0;
+        }
+
+        /* =========================================
+           NOTIFICATION
+           ========================================= */
+
+        #rankpilotLoginNotification {
+          position: fixed;
+
+          bottom: 25px;
+          left: 50%;
+
+          transform:
+            translate(-50%, 15px);
+
+          opacity: 0;
+
+          z-index: 11000;
+
+          background: #111827;
+          color: #ffffff;
+
+          padding: 11px 17px;
+
+          border-radius: 10px;
+
+          font-size: 13px;
+          font-weight: 600;
+
+          box-shadow:
+            0 12px 35px rgba(0,0,0,0.25);
+
+          transition:
+            opacity 0.2s ease,
+            transform 0.2s ease;
+        }
+
+        #rankpilotLoginNotification.show {
+          opacity: 1;
+
+          transform:
+            translate(-50%, 0);
+        }
+
+        /* =========================================
+           MOBILE
+           ========================================= */
+
+        @media (max-width: 700px) {
+
+          #rankpilotLoginButton {
+            top: 14px;
+            right: 14px;
+
+            padding: 9px 13px;
+
+            font-size: 13px;
+          }
+
+          #rankpilotUserMenu {
+            top: 57px;
+            right: 14px;
+
+            width: 195px;
+          }
+
+          .rankpilot-login-card {
+            padding: 30px 24px;
+          }
+
+        }
+
+      `;
+
+      document.head.appendChild(style);
+    }
+
+    /* -----------------------------------------------------
+       15. ACTUALIZAR ESTADO INICIAL
+       ----------------------------------------------------- */
+
+    updateLoginButton();
+
+    /* -----------------------------------------------------
+       16. ACTUALIZAR SI CAMBIA LA CUENTA
+       ----------------------------------------------------- */
+
+    window.addEventListener(
+      "storage",
+      function () {
+        updateLoginButton();
+      }
+    );
+  }
+
+  /* -------------------------------------------------------
+     INICIALIZACIÓN
+     ------------------------------------------------------- */
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      initRankPilotLoginUI
+    );
+  } else {
+    initRankPilotLoginUI();
+  }
+
+})();
