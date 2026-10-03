@@ -3347,18 +3347,15 @@ window.generateSEOReport =
    RANKPILOT — DASHBOARD / PROJECTS / HISTORY
    ========================================================= */
 
-const RANKPILOT_STORAGE_KEY = "rankpilot_projects_v1";
+const RANKPILOT_PROJECTS_KEY = "rankpilot_projects_v1";
 
-let rankPilotCurrentProjectId = null;
-
-
-/* =========================================================
+/* ---------------------------------------------------------
    STORAGE
-   ========================================================= */
+--------------------------------------------------------- */
 
 function rankPilotGetProjects() {
   try {
-    const saved = localStorage.getItem(RANKPILOT_STORAGE_KEY);
+    const saved = localStorage.getItem(RANKPILOT_PROJECTS_KEY);
 
     if (!saved) {
       return [];
@@ -3368,92 +3365,45 @@ function rankPilotGetProjects() {
 
     return Array.isArray(projects) ? projects : [];
   } catch (error) {
-    console.error("RankPilot storage error:", error);
+    console.error("RankPilot: error leyendo proyectos", error);
     return [];
   }
 }
 
-
 function rankPilotSaveProjects(projects) {
   try {
     localStorage.setItem(
-      RANKPILOT_STORAGE_KEY,
+      RANKPILOT_PROJECTS_KEY,
       JSON.stringify(projects)
     );
   } catch (error) {
-    console.error("No se pudieron guardar los proyectos:", error);
+    console.error("RankPilot: error guardando proyectos", error);
   }
 }
-
-
-/* =========================================================
-   HELPERS
-   ========================================================= */
-
-function rankPilotCreateId(prefix = "rp") {
-  return (
-    prefix +
-    "_" +
-    Date.now().toString(36) +
-    "_" +
-    Math.random().toString(36).substring(2, 8)
-  );
-}
-
-
-function rankPilotFormatDate(date) {
-  try {
-    return new Intl.DateTimeFormat("es-ES", {
-      dateStyle: "medium",
-      timeStyle: "short"
-    }).format(new Date(date));
-  } catch {
-    return date;
-  }
-}
-
-
-function rankPilotHostname(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-
-function rankPilotEscape(value) {
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-
-/* =========================================================
-   PROJECTS
-   ========================================================= */
 
 function rankPilotCreateProject(name, url) {
   const projects = rankPilotGetProjects();
 
-  const normalizedUrl =
-    typeof normalizeUrl === "function"
-      ? normalizeUrl(url)
-      : url;
+  const normalizedUrl = normalizeUrl(url);
 
   const project = {
-    id: rankPilotCreateId("project"),
-    name: name || rankPilotHostname(normalizedUrl),
+    id:
+      "project_" +
+      Date.now() +
+      "_" +
+      Math.random().toString(36).substring(2, 8),
+
+    name:
+      name ||
+      getHostname(normalizedUrl) ||
+      "Nuevo proyecto",
+
     url: normalizedUrl,
+
     createdAt: new Date().toISOString(),
+
     updatedAt: new Date().toISOString(),
+
     analyses: []
   };
 
@@ -3461,237 +3411,282 @@ function rankPilotCreateProject(name, url) {
 
   rankPilotSaveProjects(projects);
 
-  rankPilotCurrentProjectId = project.id;
-
   return project;
 }
 
+/* ---------------------------------------------------------
+   SAVE ANALYSIS
+--------------------------------------------------------- */
 
-function rankPilotGetCurrentProject() {
-  const projects = rankPilotGetProjects();
-
-  if (!rankPilotCurrentProjectId) {
-    return null;
+function rankPilotSaveAnalysis(data) {
+  if (!data || !data.url) {
+    return;
   }
 
-  return (
-    projects.find(
-      project => project.id === rankPilotCurrentProjectId
-    ) || null
-  );
-}
-
-
-function rankPilotFindOrCreateProject(url) {
   const projects = rankPilotGetProjects();
 
-  const normalizedUrl =
-    typeof normalizeUrl === "function"
-      ? normalizeUrl(url)
-      : url;
+  const normalizedUrl = normalizeUrl(data.url);
 
-  const hostname = rankPilotHostname(normalizedUrl);
+  let project = projects.find(
+    (item) =>
+      normalizeUrl(item.url) === normalizedUrl
+  );
 
-  let project = projects.find(project => {
-    return rankPilotHostname(project.url) === hostname;
-  });
+  /*
+   Si no existe proyecto, creamos uno automáticamente.
+  */
 
   if (!project) {
     project = rankPilotCreateProject(
-      hostname,
+      getHostname(normalizedUrl) || "Mi proyecto",
       normalizedUrl
-    );
-  } else {
-    rankPilotCurrentProjectId = project.id;
-  }
-
-  return project;
-}
-
-
-/* =========================================================
-   SAVE ANALYSIS
-   ========================================================= */
-
-function rankPilotSaveAnalysis(data) {
-  try {
-    if (!data || !data.finalUrl || !data.seo) {
-      return;
-    }
-
-    const project = rankPilotFindOrCreateProject(
-      data.finalUrl
-    );
-
-    const projects = rankPilotGetProjects();
-
-    const projectIndex = projects.findIndex(
-      item => item.id === project.id
-    );
-
-    if (projectIndex === -1) {
-      return;
-    }
-
-    const analysis = {
-      id: rankPilotCreateId("analysis"),
-      date: new Date().toISOString(),
-      url: data.finalUrl,
-      score: Number(data.seo.score || 0),
-      data: data
-    };
-
-    projects[projectIndex].analyses =
-      projects[projectIndex].analyses || [];
-
-    projects[projectIndex].analyses.unshift(
-      analysis
     );
 
     /*
-      Limitamos el historial para no llenar
-      el almacenamiento del navegador.
+     Volvemos a cargar porque createProject
+     ya guardó los datos.
     */
-    projects[projectIndex].analyses =
-      projects[projectIndex].analyses.slice(0, 20);
 
-    projects[projectIndex].updatedAt =
-      new Date().toISOString();
+    const updatedProjects = rankPilotGetProjects();
 
-    rankPilotCurrentProjectId = project.id;
-
-    rankPilotSaveProjects(projects);
-
-    rankPilotUpdateDashboardButton();
-
-    console.log(
-      "RankPilot: análisis guardado en",
-      projects[projectIndex].name
+    const createdProject = updatedProjects.find(
+      (item) => item.id === project.id
     );
-  } catch (error) {
-    console.error(
-      "RankPilot: error guardando análisis",
-      error
-    );
+
+    if (!createdProject) {
+      return;
+    }
+
+    project = createdProject;
   }
+
+  const freshProjects = rankPilotGetProjects();
+
+  const targetProject = freshProjects.find(
+    (item) => item.id === project.id
+  );
+
+  if (!targetProject) {
+    return;
+  }
+
+  const analysis = {
+    id:
+      "analysis_" +
+      Date.now() +
+      "_" +
+      Math.random().toString(36).substring(2, 8),
+
+    date: new Date().toISOString(),
+
+    score:
+      typeof data.score === "number"
+        ? data.score
+        : 0,
+
+    data: data
+  };
+
+  if (!Array.isArray(targetProject.analyses)) {
+    targetProject.analyses = [];
+  }
+
+  targetProject.analyses.unshift(analysis);
+
+  /*
+   Máximo 20 análisis por proyecto.
+  */
+
+  targetProject.analyses =
+    targetProject.analyses.slice(0, 20);
+
+  targetProject.updatedAt =
+    new Date().toISOString();
+
+  rankPilotSaveProjects(freshProjects);
 }
 
+/* ---------------------------------------------------------
+   FIND PROJECT
+--------------------------------------------------------- */
 
-/* =========================================================
+function rankPilotFindProject(projectId) {
+  const projects = rankPilotGetProjects();
+
+  return projects.find(
+    (project) => project.id === projectId
+  );
+}
+
+/* ---------------------------------------------------------
    DELETE PROJECT
-   ========================================================= */
+--------------------------------------------------------- */
 
 function rankPilotDeleteProject(projectId) {
   const projects = rankPilotGetProjects();
 
-  const project = projects.find(
-    item => item.id === projectId
-  );
-
-  if (!project) {
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `¿Quieres eliminar el proyecto "${project.name}" y todo su historial?`
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
   const filtered = projects.filter(
-    item => item.id !== projectId
+    (project) => project.id !== projectId
   );
 
   rankPilotSaveProjects(filtered);
 
-  if (rankPilotCurrentProjectId === projectId) {
-    rankPilotCurrentProjectId = null;
-  }
-
-  rankPilotRenderDashboard();
+  rankPilotOpenDashboard();
 }
 
-
-/* =========================================================
+/* ---------------------------------------------------------
    DASHBOARD BUTTON
-   ========================================================= */
+--------------------------------------------------------- */
 
 function rankPilotCreateDashboardButton() {
-  if (document.getElementById("rankpilotDashboardButton")) {
+  if (
+    document.getElementById(
+      "rankpilotDashboardButton"
+    )
+  ) {
     return;
   }
 
-  const button = document.createElement("button");
+  const button =
+    document.createElement("button");
 
-  button.id = "rankpilotDashboardButton";
+  button.id =
+    "rankpilotDashboardButton";
+
   button.type = "button";
-  button.innerHTML = "📊 Dashboard";
 
-  button.addEventListener("click", () => {
-    rankPilotOpenDashboard();
-  });
+  button.innerHTML = `
+    <span class="rp-dashboard-icon">▦</span>
+    <span>Dashboard</span>
+  `;
+
+  button.addEventListener(
+    "click",
+    rankPilotOpenDashboard
+  );
 
   document.body.appendChild(button);
 }
 
+/* ---------------------------------------------------------
+   DASHBOARD MODAL
+--------------------------------------------------------- */
 
-function rankPilotUpdateDashboardButton() {
-  const button = document.getElementById(
-    "rankpilotDashboardButton"
-  );
-
-  if (!button) {
+function rankPilotCreateDashboardModal() {
+  if (
+    document.getElementById(
+      "rankpilotDashboardModal"
+    )
+  ) {
     return;
   }
 
-  const projects = rankPilotGetProjects();
+  const modal =
+    document.createElement("div");
 
-  const totalAnalyses = projects.reduce(
-    (total, project) =>
-      total + (project.analyses?.length || 0),
-    0
-  );
+  modal.id =
+    "rankpilotDashboardModal";
 
-  button.innerHTML =
-    totalAnalyses > 0
-      ? `📊 Dashboard <span>${totalAnalyses}</span>`
-      : "📊 Dashboard";
-}
+  modal.innerHTML = `
+    <div class="rp-dashboard-overlay"></div>
 
+    <div class="rp-dashboard-panel">
 
-/* =========================================================
-   DASHBOARD MODAL
-   ========================================================= */
+      <div class="rp-dashboard-header">
 
-function rankPilotOpenDashboard() {
-  let modal = document.getElementById(
-    "rankpilotDashboardModal"
-  );
+        <div>
+          <div class="rp-dashboard-eyebrow">
+            RANKPILOT
+          </div>
 
-  if (!modal) {
-    rankPilotCreateDashboardModal();
+          <h2>
+            Dashboard
+          </h2>
 
-    modal = document.getElementById(
-      "rankpilotDashboardModal"
+          <p>
+            Gestiona tus proyectos SEO y consulta su evolución.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="rp-dashboard-close"
+          id="rankpilotDashboardClose"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div
+        id="rankpilotDashboardContent"
+        class="rp-dashboard-content"
+      ></div>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeButton =
+    document.getElementById(
+      "rankpilotDashboardClose"
+    );
+
+  if (closeButton) {
+    closeButton.addEventListener(
+      "click",
+      rankPilotCloseDashboard
     );
   }
 
-  rankPilotRenderDashboard();
+  const overlay =
+    modal.querySelector(
+      ".rp-dashboard-overlay"
+    );
+
+  if (overlay) {
+    overlay.addEventListener(
+      "click",
+      rankPilotCloseDashboard
+    );
+  }
+}
+
+/* ---------------------------------------------------------
+   OPEN DASHBOARD
+--------------------------------------------------------- */
+
+function rankPilotOpenDashboard() {
+  rankPilotCreateDashboardModal();
+
+  const modal =
+    document.getElementById(
+      "rankpilotDashboardModal"
+    );
+
+  if (!modal) {
+    return;
+  }
 
   modal.classList.add("active");
 
   document.body.classList.add(
     "rankpilot-dashboard-open"
   );
+
+  rankPilotRenderDashboard();
 }
 
+/* ---------------------------------------------------------
+   CLOSE DASHBOARD
+--------------------------------------------------------- */
 
 function rankPilotCloseDashboard() {
-  const modal = document.getElementById(
-    "rankpilotDashboardModal"
-  );
+  const modal =
+    document.getElementById(
+      "rankpilotDashboardModal"
+    );
 
   if (!modal) {
     return;
@@ -3704,336 +3699,301 @@ function rankPilotCloseDashboard() {
   );
 }
 
-
-function rankPilotCreateDashboardModal() {
-  const modal = document.createElement("div");
-
-  modal.id = "rankpilotDashboardModal";
-
-  modal.innerHTML = `
-    <div class="rankpilot-dashboard-overlay"></div>
-
-    <div class="rankpilot-dashboard-panel">
-
-      <div class="rankpilot-dashboard-header">
-
-        <div>
-          <span class="rankpilot-dashboard-eyebrow">
-            RANKPILOT
-          </span>
-
-          <h2>Dashboard</h2>
-
-          <p>
-            Gestiona tus proyectos y consulta tu historial SEO.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          class="rankpilot-dashboard-close"
-          id="rankpilotDashboardClose"
-        >
-          ×
-        </button>
-
-      </div>
-
-      <div
-        id="rankpilotDashboardContent"
-        class="rankpilot-dashboard-content"
-      ></div>
-
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  modal
-    .querySelector(".rankpilot-dashboard-overlay")
-    .addEventListener(
-      "click",
-      rankPilotCloseDashboard
-    );
-
-  document
-    .getElementById("rankpilotDashboardClose")
-    .addEventListener(
-      "click",
-      rankPilotCloseDashboard
-    );
-}
-
-
-/* =========================================================
-   RENDER DASHBOARD
-   ========================================================= */
+/* ---------------------------------------------------------
+   DASHBOARD RENDER
+--------------------------------------------------------- */
 
 function rankPilotRenderDashboard() {
-  const container = document.getElementById(
-    "rankpilotDashboardContent"
-  );
+  const container =
+    document.getElementById(
+      "rankpilotDashboardContent"
+    );
 
   if (!container) {
     return;
   }
 
-  const projects = rankPilotGetProjects();
+  const projects =
+    rankPilotGetProjects();
 
-  const totalAnalyses = projects.reduce(
-    (total, project) =>
-      total + (project.analyses?.length || 0),
-    0
-  );
+  const totalProjects =
+    projects.length;
 
-  const lastScores = projects
-    .flatMap(project => project.analyses || [])
-    .map(analysis => Number(analysis.score || 0));
+  const totalAnalyses =
+    projects.reduce(
+      (total, project) =>
+        total +
+        (Array.isArray(project.analyses)
+          ? project.analyses.length
+          : 0),
+      0
+    );
+
+  const latestScores =
+    projects
+      .map((project) => {
+        if (
+          !project.analyses ||
+          !project.analyses.length
+        ) {
+          return null;
+        }
+
+        return project.analyses[0].score;
+      })
+      .filter(
+        (score) =>
+          typeof score === "number"
+      );
 
   const averageScore =
-    lastScores.length > 0
+    latestScores.length
       ? Math.round(
-          lastScores.reduce(
-            (sum, score) => sum + score,
+          latestScores.reduce(
+            (a, b) => a + b,
             0
-          ) / lastScores.length
+          ) /
+            latestScores.length
         )
       : 0;
 
   container.innerHTML = `
+    <div class="rp-dashboard-stats">
 
-    <div class="rankpilot-dashboard-stats">
-
-      <div class="rankpilot-stat-card">
-        <span>PROYECTOS</span>
-        <strong>${projects.length}</strong>
+      <div class="rp-stat-card">
+        <span>Proyectos</span>
+        <strong>${totalProjects}</strong>
       </div>
 
-      <div class="rankpilot-stat-card">
-        <span>ANÁLISIS</span>
+      <div class="rp-stat-card">
+        <span>Análisis</span>
         <strong>${totalAnalyses}</strong>
       </div>
 
-      <div class="rankpilot-stat-card">
-        <span>SCORE MEDIO</span>
-        <strong>${averageScore || "—"}</strong>
+      <div class="rp-stat-card">
+        <span>Score medio</span>
+        <strong>${averageScore}/100</strong>
       </div>
 
     </div>
 
-
-    <div class="rankpilot-dashboard-toolbar">
+    <div class="rp-dashboard-toolbar">
 
       <div>
-        <span>WORKSPACE</span>
-        <h3>Mis proyectos</h3>
+        <h3>
+          Mis proyectos
+        </h3>
+
+        <p>
+          Crea y controla tus proyectos SEO.
+        </p>
       </div>
 
       <button
         type="button"
-        class="rankpilot-new-project-button"
-        onclick="rankPilotShowNewProjectForm()"
+        class="rp-primary-button"
+        id="rankpilotCreateProjectButton"
       >
         + Nuevo proyecto
       </button>
 
     </div>
 
+    <div
+      id="rankpilotProjectsArea"
+      class="rp-projects-area"
+    ></div>
 
     <div
-      id="rankpilotNewProjectForm"
-      class="rankpilot-new-project-form"
+      id="rankpilotCreateProjectArea"
+      class="rp-create-project-area"
       style="display:none;"
-    >
-
-      <div class="rankpilot-form-grid">
-
-        <div>
-          <label>Nombre del proyecto</label>
-
-          <input
-            id="rankpilotProjectName"
-            type="text"
-            placeholder="Ej. Mi empresa"
-          />
-        </div>
-
-        <div>
-          <label>URL de la web</label>
-
-          <input
-            id="rankpilotProjectUrl"
-            type="url"
-            placeholder="https://ejemplo.com"
-          />
-        </div>
-
-      </div>
-
-      <div class="rankpilot-form-actions">
-
-        <button
-          type="button"
-          class="rankpilot-secondary-button"
-          onclick="rankPilotHideNewProjectForm()"
-        >
-          Cancelar
-        </button>
-
-        <button
-          type="button"
-          class="rankpilot-primary-button"
-          onclick="rankPilotCreateProjectFromForm()"
-        >
-          Crear proyecto
-        </button>
-
-      </div>
-
-    </div>
-
-
-    <div class="rankpilot-projects-list">
-
-      ${
-        projects.length
-          ? projects
-              .map(project =>
-                rankPilotProjectCard(project)
-              )
-              .join("")
-          : `
-            <div class="rankpilot-empty-projects">
-
-              <div class="rankpilot-empty-icon">
-                📁
-              </div>
-
-              <h3>Aún no tienes proyectos</h3>
-
-              <p>
-                Analiza una web o crea tu primer proyecto
-                para comenzar a guardar tu historial SEO.
-              </p>
-
-              <button
-                type="button"
-                class="rankpilot-primary-button"
-                onclick="rankPilotShowNewProjectForm()"
-              >
-                Crear mi primer proyecto
-              </button>
-
-            </div>
-          `
-      }
-
-    </div>
+    ></div>
   `;
+
+  const createButton =
+    document.getElementById(
+      "rankpilotCreateProjectButton"
+    );
+
+  if (createButton) {
+    createButton.addEventListener(
+      "click",
+      rankPilotShowCreateProject
+    );
+  }
+
+  rankPilotRenderProjects();
 }
 
+/* ---------------------------------------------------------
+   PROJECTS
+--------------------------------------------------------- */
 
-/* =========================================================
+function rankPilotRenderProjects() {
+  const area =
+    document.getElementById(
+      "rankpilotProjectsArea"
+    );
+
+  if (!area) {
+    return;
+  }
+
+  const projects =
+    rankPilotGetProjects();
+
+  if (!projects.length) {
+    area.innerHTML = `
+      <div class="rp-empty-state">
+
+        <div class="rp-empty-icon">
+          ◫
+        </div>
+
+        <h3>
+          Todavía no tienes proyectos
+        </h3>
+
+        <p>
+          Crea tu primer proyecto para empezar a guardar análisis y seguir tu evolución SEO.
+        </p>
+
+        <button
+          type="button"
+          class="rp-primary-button"
+          onclick="rankPilotShowCreateProject()"
+        >
+          Crear mi primer proyecto
+        </button>
+
+      </div>
+    `;
+
+    return;
+  }
+
+  area.innerHTML =
+    projects
+      .map(
+        (project) =>
+          rankPilotProjectCard(project)
+      )
+      .join("");
+}
+
+/* ---------------------------------------------------------
    PROJECT CARD
-   ========================================================= */
+--------------------------------------------------------- */
 
 function rankPilotProjectCard(project) {
-  const analyses = project.analyses || [];
+  const analyses =
+    Array.isArray(project.analyses)
+      ? project.analyses
+      : [];
 
   const latest =
-    analyses.length > 0
+    analyses.length
       ? analyses[0]
       : null;
 
-  const score = latest
-    ? Number(latest.score || 0)
-    : null;
+  const score =
+    latest &&
+    typeof latest.score === "number"
+      ? latest.score
+      : null;
 
-  const scoreClass =
-    score === null
-      ? ""
-      : score >= 80
-      ? "good"
-      : score >= 60
-      ? "warning"
-      : "bad";
+  const lastDate =
+    latest
+      ? rankPilotFormatDate(
+          latest.date
+        )
+      : "Sin análisis";
 
   return `
+    <div
+      class="rp-project-card"
+      data-project-id="${escapeHtml(
+        project.id
+      )}"
+    >
 
-    <div class="rankpilot-project-card">
+      <div class="rp-project-main">
 
-      <div class="rankpilot-project-main">
-
-        <div class="rankpilot-project-icon">
-          🌐
+        <div class="rp-project-icon">
+          ◉
         </div>
 
-        <div class="rankpilot-project-info">
+        <div class="rp-project-info">
 
-          <h3>
-            ${rankPilotEscape(project.name)}
-          </h3>
+          <h4>
+            ${escapeHtml(project.name)}
+          </h4>
 
-          <p>
-            ${rankPilotEscape(project.url)}
-          </p>
+          <a
+            href="${escapeHtml(project.url)}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ${escapeHtml(project.url)}
+          </a>
 
-          <small>
-            ${
-              analyses.length
-            } análisis · Actualizado ${
-              rankPilotFormatDate(project.updatedAt)
-            }
-          </small>
+          <span>
+            Último análisis: ${lastDate}
+          </span>
 
         </div>
 
       </div>
 
-
-      <div class="rankpilot-project-score">
+      <div class="rp-project-score">
 
         ${
-          latest
+          score !== null
             ? `
-              <span class="rankpilot-score ${scoreClass}">
+              <strong>
                 ${score}
-              </span>
+              </strong>
 
-              <small>SEO SCORE</small>
+              <span>
+                /100
+              </span>
             `
             : `
-              <span class="rankpilot-no-score">
+              <span class="rp-no-score">
                 —
               </span>
-
-              <small>SIN ANÁLISIS</small>
             `
         }
 
       </div>
 
-
-      <div class="rankpilot-project-actions">
+      <div class="rp-project-actions">
 
         <button
           type="button"
-          onclick="rankPilotOpenProject('${project.id}')"
+          onclick="rankPilotOpenProject('${escapeHtml(
+            project.id
+          )}')"
         >
           Ver proyecto
         </button>
 
         <button
           type="button"
-          onclick="rankPilotAnalyzeProject('${project.id}')"
+          onclick="rankPilotAnalyzeProject('${escapeHtml(
+            project.id
+          )}')"
         >
           Analizar
         </button>
 
         <button
           type="button"
-          class="danger"
-          onclick="rankPilotDeleteProject('${project.id}')"
+          class="rp-danger-button"
+          onclick="rankPilotConfirmDeleteProject('${escapeHtml(
+            project.id
+          )}')"
         >
           Eliminar
         </button>
@@ -4044,280 +4004,590 @@ function rankPilotProjectCard(project) {
   `;
 }
 
+/* ---------------------------------------------------------
+   CREATE PROJECT
+--------------------------------------------------------- */
 
-/* =========================================================
-   NEW PROJECT
-   ========================================================= */
+function rankPilotShowCreateProject() {
+  const area =
+    document.getElementById(
+      "rankpilotCreateProjectArea"
+    );
 
-function rankPilotShowNewProjectForm() {
-  const formElement = document.getElementById(
-    "rankpilotNewProjectForm"
-  );
-
-  if (!formElement) {
+  if (!area) {
     return;
   }
 
-  formElement.style.display = "block";
+  area.style.display = "block";
 
-  const nameInput = document.getElementById(
-    "rankpilotProjectName"
-  );
+  area.innerHTML = `
+    <div class="rp-create-box">
 
-  if (nameInput) {
-    nameInput.focus();
+      <div class="rp-create-header">
+
+        <div>
+          <h3>
+            Crear proyecto
+          </h3>
+
+          <p>
+            Añade una web para comenzar a guardar sus análisis.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="rp-create-close"
+          onclick="rankPilotHideCreateProject()"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form
+        id="rankpilotCreateProjectForm"
+        class="rp-create-form"
+      >
+
+        <div class="rp-field">
+
+          <label>
+            Nombre del proyecto
+          </label>
+
+          <input
+            type="text"
+            id="rankpilotProjectName"
+            placeholder="Mi empresa"
+            required
+          >
+
+        </div>
+
+        <div class="rp-field">
+
+          <label>
+            URL
+          </label>
+
+          <input
+            type="url"
+            id="rankpilotProjectUrl"
+            placeholder="https://ejemplo.com"
+            required
+          >
+
+        </div>
+
+        <button
+          type="submit"
+          class="rp-primary-button"
+        >
+          Crear proyecto
+        </button>
+
+      </form>
+
+    </div>
+  `;
+
+  const form =
+    document.getElementById(
+      "rankpilotCreateProjectForm"
+    );
+
+  if (form) {
+    form.addEventListener(
+      "submit",
+      function (event) {
+        event.preventDefault();
+
+        const name =
+          document.getElementById(
+            "rankpilotProjectName"
+          ).value.trim();
+
+        const url =
+          document.getElementById(
+            "rankpilotProjectUrl"
+          ).value.trim();
+
+        if (!name || !url) {
+          return;
+        }
+
+        try {
+          rankPilotCreateProject(
+            name,
+            url
+          );
+
+          rankPilotHideCreateProject();
+
+          rankPilotRenderDashboard();
+
+        } catch (error) {
+          console.error(
+            "RankPilot: error creando proyecto",
+            error
+          );
+        }
+      }
+    );
   }
 }
 
+function rankPilotHideCreateProject() {
+  const area =
+    document.getElementById(
+      "rankpilotCreateProjectArea"
+    );
 
-function rankPilotHideNewProjectForm() {
-  const formElement = document.getElementById(
-    "rankpilotNewProjectForm"
-  );
-
-  if (formElement) {
-    formElement.style.display = "none";
-  }
-}
-
-
-function rankPilotCreateProjectFromForm() {
-  const nameInput = document.getElementById(
-    "rankpilotProjectName"
-  );
-
-  const urlInput = document.getElementById(
-    "rankpilotProjectUrl"
-  );
-
-  if (!urlInput || !urlInput.value.trim()) {
-    alert("Introduce la URL de la web.");
+  if (!area) {
     return;
   }
 
-  let url = urlInput.value.trim();
+  area.style.display = "none";
 
-  if (!/^https?:\/\//i.test(url)) {
-    url = "https://" + url;
-  }
-
-  try {
-    new URL(url);
-  } catch {
-    alert("Introduce una URL válida.");
-    return;
-  }
-
-  const name =
-    nameInput?.value.trim() ||
-    rankPilotHostname(url);
-
-  const project = rankPilotCreateProject(
-    name,
-    url
-  );
-
-  rankPilotHideNewProjectForm();
-
-  rankPilotRenderDashboard();
-
-  console.log(
-    "Proyecto creado:",
-    project
-  );
+  area.innerHTML = "";
 }
 
-
-/* =========================================================
-   OPEN PROJECT
-   ========================================================= */
+/* ---------------------------------------------------------
+   PROJECT DETAIL
+--------------------------------------------------------- */
 
 function rankPilotOpenProject(projectId) {
-  rankPilotCurrentProjectId = projectId;
-
-  const projects = rankPilotGetProjects();
-
-  const project = projects.find(
-    item => item.id === projectId
-  );
+  const project =
+    rankPilotFindProject(projectId);
 
   if (!project) {
     return;
   }
 
-  const container = document.getElementById(
-    "rankpilotDashboardContent"
-  );
+  const container =
+    document.getElementById(
+      "rankpilotDashboardContent"
+    );
 
   if (!container) {
     return;
   }
 
-  const analyses = project.analyses || [];
+  const analyses =
+    Array.isArray(project.analyses)
+      ? project.analyses
+      : [];
 
   const latest =
-    analyses.length > 0
+    analyses.length
       ? analyses[0]
       : null;
 
-  container.innerHTML = `
+  const score =
+    latest &&
+    typeof latest.score === "number"
+      ? latest.score
+      : 0;
 
-    <div class="rankpilot-project-detail">
+  container.innerHTML = `
+    <div class="rp-project-detail">
 
       <button
         type="button"
-        class="rankpilot-back-button"
+        class="rp-back-button"
         onclick="rankPilotRenderDashboard()"
       >
-        ← Volver a proyectos
+        ← Volver al dashboard
       </button>
 
-
-      <div class="rankpilot-project-detail-header">
+      <div class="rp-detail-header">
 
         <div>
 
-          <span>PROYECTO</span>
+          <div class="rp-dashboard-eyebrow">
+            PROYECTO
+          </div>
 
           <h2>
-            ${rankPilotEscape(project.name)}
+            ${escapeHtml(project.name)}
           </h2>
 
-          <p>
-            ${rankPilotEscape(project.url)}
-          </p>
+          <a
+            href="${escapeHtml(project.url)}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ${escapeHtml(project.url)}
+          </a>
 
         </div>
 
+        <div class="rp-detail-score">
+
+          <span>
+            SEO SCORE
+          </span>
+
+          <strong>
+            ${score}
+          </strong>
+
+          <small>
+            /100
+          </small>
+
+        </div>
+
+      </div>
+
+      <div class="rp-detail-actions">
+
         <button
           type="button"
-          class="rankpilot-primary-button"
-          onclick="rankPilotAnalyzeProject('${project.id}')"
+          class="rp-primary-button"
+          onclick="rankPilotAnalyzeProject('${escapeHtml(
+            project.id
+          )}')"
         >
           Analizar ahora
         </button>
 
       </div>
 
+      <div class="rp-evolution-section">
 
-      ${
-        latest
-          ? `
-            <div class="rankpilot-latest-analysis">
+        <div class="rp-section-heading">
 
-              <div>
+          <div>
+            <h3>
+              Evolución SEO
+            </h3>
 
-                <span>ÚLTIMO SEO SCORE</span>
+            <p>
+              Observa cómo ha cambiado el score de este proyecto.
+            </p>
+          </div>
 
-                <strong>
-                  ${latest.score}
-                </strong>
-
-              </div>
-
-              <div>
-
-                <span>ÚLTIMO ANÁLISIS</span>
-
-                <p>
-                  ${rankPilotFormatDate(latest.date)}
-                </p>
-
-              </div>
-
-            </div>
-          `
-          : `
-            <div class="rankpilot-no-analysis">
-
-              <h3>
-                Este proyecto todavía no tiene análisis.
-              </h3>
-
-              <p>
-                Ejecuta tu primer análisis para empezar
-                a construir el historial.
-              </p>
-
-            </div>
-          `
-      }
-
-
-      <div class="rankpilot-history-header">
-
-        <div>
-          <span>HISTORIAL</span>
-          <h3>Análisis anteriores</h3>
         </div>
 
+        <div id="rankpilotEvolutionChart"></div>
+
+      </div>
+
+      <div class="rp-history-section">
+
+        <div class="rp-section-heading">
+
+          <div>
+            <h3>
+              Historial
+            </h3>
+
+            <p>
+              Análisis anteriores de este proyecto.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="rp-history-list">
+
+          ${
+            analyses.length
+              ? analyses
+                  .map(
+                    (analysis) =>
+                      rankPilotHistoryItem(
+                        project,
+                        analysis
+                      )
+                  )
+                  .join("")
+              : `
+                <div class="rp-empty-history">
+                  Todavía no hay análisis guardados.
+                </div>
+              `
+          }
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  rankPilotRenderEvolutionChart(
+    analyses
+  );
+}
+
+/* ---------------------------------------------------------
+   EVOLUTION CHART
+--------------------------------------------------------- */
+
+function rankPilotRenderEvolutionChart(
+  analyses
+) {
+  const container =
+    document.getElementById(
+      "rankpilotEvolutionChart"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  if (
+    !Array.isArray(analyses) ||
+    analyses.length === 0
+  ) {
+    container.innerHTML = `
+      <div class="rp-chart-empty">
+        Realiza tu primer análisis para empezar a ver la evolución.
+      </div>
+    `;
+
+    return;
+  }
+
+  const ordered =
+    [...analyses]
+      .reverse()
+      .filter(
+        (item) =>
+          typeof item.score ===
+          "number"
+      );
+
+  if (!ordered.length) {
+    container.innerHTML = `
+      <div class="rp-chart-empty">
+        No hay datos suficientes para mostrar la evolución.
+      </div>
+    `;
+
+    return;
+  }
+
+  const width = 760;
+  const height = 260;
+
+  const paddingLeft = 50;
+  const paddingRight = 25;
+  const paddingTop = 25;
+  const paddingBottom = 50;
+
+  const chartWidth =
+    width -
+    paddingLeft -
+    paddingRight;
+
+  const chartHeight =
+    height -
+    paddingTop -
+    paddingBottom;
+
+  const maxScore = 100;
+  const minScore = 0;
+
+  const points =
+    ordered.map(
+      (analysis, index) => {
+        const x =
+          ordered.length === 1
+            ? width / 2
+            : paddingLeft +
+              (index /
+                (ordered.length - 1)) *
+                chartWidth;
+
+        const score =
+          Math.max(
+            minScore,
+            Math.min(
+              maxScore,
+              analysis.score
+            )
+          );
+
+        const y =
+          paddingTop +
+          chartHeight -
+          (score / maxScore) *
+            chartHeight;
+
+        return {
+          x,
+          y,
+          score,
+          date: analysis.date
+        };
+      }
+    );
+
+  const path =
+    points
+      .map(
+        (point, index) =>
+          `${
+            index === 0
+              ? "M"
+              : "L"
+          } ${point.x} ${point.y}`
+      )
+      .join(" ");
+
+  const gridLines = [0, 25, 50, 75, 100]
+    .map((value) => {
+      const y =
+        paddingTop +
+        chartHeight -
+        (value / 100) *
+          chartHeight;
+
+      return `
+        <line
+          x1="${paddingLeft}"
+          y1="${y}"
+          x2="${width - paddingRight}"
+          y2="${y}"
+          class="rp-chart-grid"
+        />
+
+        <text
+          x="${paddingLeft - 10}"
+          y="${y + 4}"
+          text-anchor="end"
+          class="rp-chart-label"
+        >
+          ${value}
+        </text>
+      `;
+    })
+    .join("");
+
+  const circles =
+    points
+      .map(
+        (point) => `
+          <circle
+            cx="${point.x}"
+            cy="${point.y}"
+            r="5"
+            class="rp-chart-point"
+          />
+
+          <text
+            x="${point.x}"
+            y="${point.y - 12}"
+            text-anchor="middle"
+            class="rp-chart-score"
+          >
+            ${point.score}
+          </text>
+        `
+      )
+      .join("");
+
+  const dates =
+    points
+      .map(
+        (point) => `
+          <text
+            x="${point.x}"
+            y="${height - 18}"
+            text-anchor="middle"
+            class="rp-chart-date"
+          >
+            ${rankPilotFormatShortDate(
+              point.date
+            )}
+          </text>
+        `
+      )
+      .join("");
+
+  container.innerHTML = `
+    <div class="rp-chart-wrapper">
+
+      <svg
+        viewBox="0 0 ${width} ${height}"
+        class="rp-evolution-svg"
+        role="img"
+        aria-label="Evolución del SEO Score"
+      >
+
+        ${gridLines}
+
+        <path
+          d="${path}"
+          class="rp-chart-line"
+          fill="none"
+        />
+
+        ${circles}
+
+        ${dates}
+
+      </svg>
+
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------------
+   HISTORY ITEM
+--------------------------------------------------------- */
+
+function rankPilotHistoryItem(
+  project,
+  analysis
+) {
+  return `
+    <div class="rp-history-item">
+
+      <div class="rp-history-date">
+
+        <strong>
+          ${rankPilotFormatDate(
+            analysis.date
+          )}
+        </strong>
+
         <span>
-          ${analyses.length} registros
+          ${rankPilotFormatTime(
+            analysis.date
+          )}
         </span>
 
       </div>
 
+      <div class="rp-history-score">
 
-      <div class="rankpilot-history-list">
+        <strong>
+          ${analysis.score}
+        </strong>
 
-        ${
-          analyses.length
-            ? analyses
-                .map(
-                  (analysis, index) => `
-                    <div
-                      class="rankpilot-history-item"
-                    >
+        <span>
+          /100
+        </span>
 
-                      <div class="rankpilot-history-number">
-                        ${index + 1}
-                      </div>
+      </div>
 
-                      <div class="rankpilot-history-info">
+      <div class="rp-history-actions">
 
-                        <strong>
-                          Análisis SEO
-                        </strong>
-
-                        <span>
-                          ${rankPilotFormatDate(
-                            analysis.date
-                          )}
-                        </span>
-
-                      </div>
-
-                      <div class="rankpilot-history-score">
-
-                        <strong>
-                          ${analysis.score}
-                        </strong>
-
-                        <span>/100</span>
-
-                      </div>
-
-                      <div class="rankpilot-history-actions">
-
-                        <button
-                          type="button"
-                          onclick="rankPilotRestoreAnalysis('${project.id}', '${analysis.id}')"
-                        >
-                          Ver análisis
-                        </button>
-
-                      </div>
-
-                    </div>
-                  `
-                )
-                .join("")
-            : `
-              <div class="rankpilot-empty-history">
-                Todavía no hay análisis guardados.
-              </div>
-            `
-        }
+        <button
+          type="button"
+          onclick="rankPilotRestoreAnalysis('${escapeHtml(
+            project.id
+          )}', '${escapeHtml(
+            analysis.id
+          )}')"
+        >
+          Ver análisis
+        </button>
 
       </div>
 
@@ -4325,114 +4595,209 @@ function rankPilotOpenProject(projectId) {
   `;
 }
 
-
-/* =========================================================
+/* ---------------------------------------------------------
    RESTORE ANALYSIS
-   ========================================================= */
+--------------------------------------------------------- */
 
 function rankPilotRestoreAnalysis(
   projectId,
   analysisId
 ) {
-  const projects = rankPilotGetProjects();
-
-  const project = projects.find(
-    item => item.id === projectId
-  );
+  const project =
+    rankPilotFindProject(projectId);
 
   if (!project) {
     return;
   }
 
-  const analysis = (
-    project.analyses || []
-  ).find(
-    item => item.id === analysisId
-  );
+  const analysis =
+    project.analyses.find(
+      (item) =>
+        item.id === analysisId
+    );
 
   if (!analysis || !analysis.data) {
     return;
   }
 
-  rankPilotCurrentProjectId = projectId;
+  currentMainUrl =
+    analysis.data.url || "";
+
+  currentData =
+    analysis.data;
 
   rankPilotCloseDashboard();
 
-  currentData = analysis.data;
+  /*
+   Esperamos un momento para que
+   el modal se cierre antes de
+   pintar el análisis.
+  */
 
-  if (typeof renderResults === "function") {
-    renderResults(analysis.data);
-  }
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  setTimeout(() => {
+    if (
+      typeof renderResults ===
+      "function"
+    ) {
+      renderResults(
+        analysis.data
+      );
+    }
+  }, 100);
 }
 
-
-/* =========================================================
+/* ---------------------------------------------------------
    ANALYZE PROJECT
-   ========================================================= */
+--------------------------------------------------------- */
 
-function rankPilotAnalyzeProject(projectId) {
-  const projects = rankPilotGetProjects();
-
-  const project = projects.find(
-    item => item.id === projectId
-  );
+function rankPilotAnalyzeProject(
+  projectId
+) {
+  const project =
+    rankPilotFindProject(projectId);
 
   if (!project) {
     return;
   }
 
-  rankPilotCurrentProjectId = projectId;
-
   rankPilotCloseDashboard();
 
-  const inputElement =
-    document.getElementById("urlInput");
+  /*
+   Ponemos la URL del proyecto
+   en el analizador principal.
+  */
 
-  const formElement =
-    document.getElementById("seoForm");
-
-  if (inputElement) {
-    inputElement.value = project.url;
+  if (input) {
+    input.value =
+      project.url;
   }
 
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  /*
+   Lanzamos el análisis usando
+   el formulario principal.
+  */
 
-  if (formElement) {
-    setTimeout(() => {
-      if (
-        typeof formElement.requestSubmit ===
-        "function"
-      ) {
-        formElement.requestSubmit();
-      } else {
-        formElement.dispatchEvent(
-          new Event("submit", {
+  if (form) {
+    if (
+      typeof form.requestSubmit ===
+      "function"
+    ) {
+      form.requestSubmit();
+    } else {
+      form.dispatchEvent(
+        new Event(
+          "submit",
+          {
             bubbles: true,
             cancelable: true
-          })
-        );
-      }
-    }, 300);
+          }
+        )
+      );
+    }
   }
 }
 
+/* ---------------------------------------------------------
+   DELETE CONFIRMATION
+--------------------------------------------------------- */
 
-/* =========================================================
-   AUTO-SAVE HOOK
-   ========================================================= */
+function rankPilotConfirmDeleteProject(
+  projectId
+) {
+  const project =
+    rankPilotFindProject(projectId);
+
+  if (!project) {
+    return;
+  }
+
+  const confirmed =
+    window.confirm(
+      `¿Quieres eliminar el proyecto "${project.name}" y todo su historial?`
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  rankPilotDeleteProject(
+    projectId
+  );
+}
+
+/* ---------------------------------------------------------
+   FORMAT DATES
+--------------------------------------------------------- */
+
+function rankPilotFormatDate(
+  date
+) {
+  try {
+    return new Date(
+      date
+    ).toLocaleDateString(
+      "es-ES",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }
+    );
+  } catch (error) {
+    return "—";
+  }
+}
+
+function rankPilotFormatShortDate(
+  date
+) {
+  try {
+    return new Date(
+      date
+    ).toLocaleDateString(
+      "es-ES",
+      {
+        day: "2-digit",
+        month: "2-digit"
+      }
+    );
+  } catch (error) {
+    return "—";
+  }
+}
+
+function rankPilotFormatTime(
+  date
+) {
+  try {
+    return new Date(
+      date
+    ).toLocaleTimeString(
+      "es-ES",
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+  } catch (error) {
+    return "";
+  }
+}
+
+/* ---------------------------------------------------------
+   AUTO-SAVE ANALYSES
+--------------------------------------------------------- */
 
 function rankPilotInstallAnalysisHook() {
   if (
-    typeof renderResults !== "function" ||
-    renderResults.__rankPilotWrapped
+    window.__rankPilotAnalysisHookInstalled
+  ) {
+    return;
+  }
+
+  if (
+    typeof renderResults !==
+    "function"
   ) {
     return;
   }
@@ -4443,30 +4808,49 @@ function rankPilotInstallAnalysisHook() {
   const wrappedRenderResults =
     function (data) {
 
-      currentData = data;
-
       try {
-        rankPilotSaveAnalysis(data);
+        if (data) {
+          rankPilotSaveAnalysis(
+            data
+          );
+        }
       } catch (error) {
         console.error(
-          "RankPilot dashboard save error:",
+          "RankPilot: error guardando análisis",
           error
         );
       }
 
-      return originalRenderResults(data);
+      return originalRenderResults(
+        data
+      );
     };
 
-  wrappedRenderResults.__rankPilotWrapped =
-    true;
+  try {
+    renderResults =
+      wrappedRenderResults;
 
-  renderResults = wrappedRenderResults;
+    window.__rankPilotAnalysisHookInstalled =
+      true;
+
+  } catch (error) {
+
+    /*
+     Si renderResults está definido
+     como const, no intentamos
+     modificarlo.
+    */
+
+    console.warn(
+      "RankPilot: no se pudo instalar el hook automático.",
+      error
+    );
+  }
 }
 
-
-/* =========================================================
+/* ---------------------------------------------------------
    DASHBOARD CSS
-   ========================================================= */
+--------------------------------------------------------- */
 
 function rankPilotInjectDashboardStyles() {
   if (
@@ -4477,454 +4861,540 @@ function rankPilotInjectDashboardStyles() {
     return;
   }
 
-  const style = document.createElement("style");
+  const style =
+    document.createElement("style");
 
-  style.id = "rankpilotDashboardStyles";
+  style.id =
+    "rankpilotDashboardStyles";
 
   style.textContent = `
 
+    /* ==========================================
+       DASHBOARD BUTTON
+    ========================================== */
+
     #rankpilotDashboardButton {
+
       position: fixed;
-      top: 20px;
-      right: 20px;
+
+      bottom: 24px;
+
+      right: 24px;
+
+      top: auto;
+
       z-index: 9998;
 
+      display: flex;
+
+      align-items: center;
+
+      gap: 8px;
+
       border: 0;
+
       border-radius: 12px;
 
-      padding: 11px 17px;
+      padding: 12px 17px;
 
       background: #111827;
-      color: white;
+
+      color: #ffffff;
 
       font-size: 14px;
+
       font-weight: 700;
 
       cursor: pointer;
 
       box-shadow:
-        0 8px 30px rgba(0,0,0,.16);
+        0 10px 30px rgba(
+          0,
+          0,
+          0,
+          0.18
+        );
 
       transition:
-        transform .2s ease,
-        box-shadow .2s ease;
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+
     }
 
     #rankpilotDashboardButton:hover {
-      transform: translateY(-2px);
+
+      transform:
+        translateY(-2px);
 
       box-shadow:
-        0 12px 35px rgba(0,0,0,.22);
+        0 14px 35px rgba(
+          0,
+          0,
+          0,
+          0.22
+        );
+
+      background:
+        #0f172a;
+
     }
 
-    #rankpilotDashboardButton span {
-      display: inline-flex;
+    .rp-dashboard-icon {
 
-      min-width: 19px;
-      height: 19px;
+      font-size: 18px;
 
-      margin-left: 5px;
+      line-height: 1;
 
-      align-items: center;
-      justify-content: center;
-
-      border-radius: 999px;
-
-      background: white;
-      color: #111827;
-
-      font-size: 11px;
     }
 
+
+    /* ==========================================
+       MODAL
+    ========================================== */
 
     #rankpilotDashboardModal {
+
       position: fixed;
+
       inset: 0;
 
       z-index: 9999;
 
       display: none;
+
     }
 
     #rankpilotDashboardModal.active {
+
       display: block;
+
     }
 
+    .rp-dashboard-overlay {
 
-    .rankpilot-dashboard-overlay {
       position: absolute;
+
       inset: 0;
 
       background:
-        rgba(15, 23, 42, .62);
+        rgba(
+          15,
+          23,
+          42,
+          0.58
+        );
 
-      backdrop-filter: blur(5px);
+      backdrop-filter:
+        blur(7px);
+
     }
 
+    .rp-dashboard-panel {
 
-    .rankpilot-dashboard-panel {
       position: absolute;
 
-      top: 3vh;
+      top: 4vh;
+
       left: 50%;
 
-      width: min(1100px, 94vw);
-      height: 94vh;
+      transform:
+        translateX(-50%);
 
-      transform: translateX(-50%);
+      width:
+        min(
+          1100px,
+          94vw
+        );
+
+      height:
+        92vh;
 
       overflow-y: auto;
 
-      background: #f8fafc;
+      background:
+        #ffffff;
 
       border-radius: 22px;
 
       box-shadow:
-        0 30px 100px rgba(0,0,0,.30);
+        0 30px 80px rgba(
+          0,
+          0,
+          0,
+          0.25
+        );
+
     }
 
+    .rp-dashboard-header {
 
-    .rankpilot-dashboard-header {
       position: sticky;
+
       top: 0;
 
       z-index: 2;
 
       display: flex;
+
       justify-content: space-between;
-      align-items: flex-start;
+
+      gap: 20px;
 
       padding: 28px 30px;
 
-      background: rgba(248,250,252,.95);
+      background:
+        rgba(
+          255,
+          255,
+          255,
+          0.96
+        );
 
-      backdrop-filter: blur(15px);
+      backdrop-filter:
+        blur(10px);
 
       border-bottom:
         1px solid #e5e7eb;
+
     }
 
+    .rp-dashboard-eyebrow {
 
-    .rankpilot-dashboard-eyebrow {
+      margin-bottom: 6px;
+
       font-size: 11px;
+
       font-weight: 800;
 
-      letter-spacing: .14em;
+      letter-spacing:
+        0.14em;
 
-      color: #6366f1;
+      color:
+        #6b7280;
+
     }
 
+    .rp-dashboard-header h2 {
 
-    .rankpilot-dashboard-header h2 {
-      margin: 4px 0;
-
-      font-size: 28px;
-      color: #111827;
-    }
-
-
-    .rankpilot-dashboard-header p {
       margin: 0;
 
-      color: #6b7280;
+      font-size: 28px;
+
+      line-height: 1.15;
+
+      color:
+        #111827;
+
     }
 
+    .rp-dashboard-header p {
 
-    .rankpilot-dashboard-close {
+      margin:
+        8px 0 0;
+
+      color:
+        #6b7280;
+
+      font-size: 14px;
+
+    }
+
+    .rp-dashboard-close {
+
       width: 40px;
+
       height: 40px;
 
+      flex:
+        0 0 auto;
+
       border: 0;
+
       border-radius: 10px;
 
-      background: #e5e7eb;
+      background:
+        #f3f4f6;
 
-      color: #111827;
+      color:
+        #111827;
 
-      font-size: 27px;
+      font-size: 26px;
+
+      line-height: 1;
 
       cursor: pointer;
+
+    }
+
+    .rp-dashboard-content {
+
+      padding: 30px;
+
     }
 
 
-    .rankpilot-dashboard-content {
-      padding: 28px 30px 50px;
-    }
+    /* ==========================================
+       STATS
+    ========================================== */
 
+    .rp-dashboard-stats {
 
-    .rankpilot-dashboard-stats {
       display: grid;
 
       grid-template-columns:
-        repeat(3, minmax(0, 1fr));
+        repeat(
+          3,
+          minmax(
+            0,
+            1fr
+          )
+        );
 
       gap: 16px;
 
-      margin-bottom: 30px;
+      margin-bottom: 32px;
+
     }
 
+    .rp-stat-card {
 
-    .rankpilot-stat-card {
       padding: 20px;
-
-      background: white;
 
       border:
         1px solid #e5e7eb;
 
       border-radius: 16px;
 
-      box-shadow:
-        0 4px 15px rgba(15,23,42,.04);
+      background:
+        #f9fafb;
+
     }
 
+    .rp-stat-card span {
 
-    .rankpilot-stat-card span {
       display: block;
 
       margin-bottom: 8px;
 
-      font-size: 11px;
-      font-weight: 800;
+      color:
+        #6b7280;
 
-      letter-spacing: .08em;
+      font-size: 13px;
 
-      color: #6b7280;
+      font-weight: 600;
+
     }
 
+    .rp-stat-card strong {
 
-    .rankpilot-stat-card strong {
-      font-size: 30px;
-
-      color: #111827;
-    }
-
-
-    .rankpilot-dashboard-toolbar {
-      display: flex;
-
-      justify-content: space-between;
-      align-items: center;
-
-      margin-bottom: 18px;
-    }
-
-
-    .rankpilot-dashboard-toolbar span,
-    .rankpilot-history-header span,
-    .rankpilot-latest-analysis span {
-      font-size: 10px;
-      font-weight: 800;
-
-      letter-spacing: .1em;
-
-      color: #6b7280;
-    }
-
-
-    .rankpilot-dashboard-toolbar h3,
-    .rankpilot-history-header h3 {
-      margin: 4px 0 0;
-
-      font-size: 21px;
-      color: #111827;
-    }
-
-
-    .rankpilot-primary-button,
-    .rankpilot-new-project-button {
-      border: 0;
-
-      border-radius: 10px;
-
-      padding: 11px 16px;
-
-      background: #111827;
-      color: white;
-
-      font-weight: 700;
-
-      cursor: pointer;
-    }
-
-
-    .rankpilot-secondary-button {
-      border: 1px solid #d1d5db;
-
-      border-radius: 10px;
-
-      padding: 11px 16px;
-
-      background: white;
-
-      color: #374151;
-
-      font-weight: 700;
-
-      cursor: pointer;
-    }
-
-
-    .rankpilot-new-project-form {
-      margin-bottom: 20px;
-
-      padding: 20px;
-
-      background: white;
-
-      border:
-        1px solid #e5e7eb;
-
-      border-radius: 16px;
-    }
-
-
-    .rankpilot-form-grid {
-      display: grid;
-
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-
-      gap: 16px;
-    }
-
-
-    .rankpilot-form-grid label {
       display: block;
 
-      margin-bottom: 7px;
+      font-size: 30px;
 
-      font-size: 12px;
-      font-weight: 700;
+      color:
+        #111827;
 
-      color: #374151;
     }
 
 
-    .rankpilot-form-grid input {
-      box-sizing: border-box;
+    /* ==========================================
+       TOOLBAR
+    ========================================== */
 
-      width: 100%;
+    .rp-dashboard-toolbar {
 
-      padding: 12px 13px;
-
-      border:
-        1px solid #d1d5db;
-
-      border-radius: 10px;
-
-      outline: none;
-
-      font-size: 14px;
-    }
-
-
-    .rankpilot-form-grid input:focus {
-      border-color: #6366f1;
-
-      box-shadow:
-        0 0 0 3px rgba(99,102,241,.10);
-    }
-
-
-    .rankpilot-form-actions {
       display: flex;
 
-      justify-content: flex-end;
+      align-items: center;
 
-      gap: 10px;
+      justify-content: space-between;
 
-      margin-top: 18px;
+      gap: 20px;
+
+      margin-bottom: 18px;
+
+    }
+
+    .rp-dashboard-toolbar h3 {
+
+      margin: 0;
+
+      font-size: 20px;
+
+      color:
+        #111827;
+
+    }
+
+    .rp-dashboard-toolbar p {
+
+      margin:
+        5px 0 0;
+
+      color:
+        #6b7280;
+
+      font-size: 13px;
+
+    }
+
+    .rp-primary-button {
+
+      border: 0;
+
+      border-radius: 11px;
+
+      padding:
+        11px 16px;
+
+      background:
+        #111827;
+
+      color:
+        #ffffff;
+
+      font-size: 14px;
+
+      font-weight: 700;
+
+      cursor: pointer;
+
+      transition:
+        transform 0.2s ease,
+        background 0.2s ease;
+
+    }
+
+    .rp-primary-button:hover {
+
+      transform:
+        translateY(-1px);
+
+      background:
+        #1f2937;
+
     }
 
 
-    .rankpilot-projects-list {
+    /* ==========================================
+       PROJECTS
+    ========================================== */
+
+    .rp-projects-area {
+
       display: grid;
 
-      gap: 14px;
+      gap: 12px;
+
     }
 
+    .rp-project-card {
 
-    .rankpilot-project-card {
       display: grid;
 
       grid-template-columns:
-        minmax(0, 1fr)
+        minmax(
+          0,
+          1fr
+        )
         auto
         auto;
 
       align-items: center;
 
-      gap: 20px;
+      gap: 22px;
 
-      padding: 20px;
-
-      background: white;
+      padding: 18px;
 
       border:
         1px solid #e5e7eb;
 
       border-radius: 16px;
 
+      background:
+        #ffffff;
+
       transition:
-        transform .2s ease,
-        box-shadow .2s ease;
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+
     }
 
+    .rp-project-card:hover {
 
-    .rankpilot-project-card:hover {
-      transform: translateY(-2px);
+      transform:
+        translateY(-1px);
 
       box-shadow:
-        0 10px 30px rgba(15,23,42,.08);
+        0 10px 25px rgba(
+          0,
+          0,
+          0,
+          0.06
+        );
+
     }
 
+    .rp-project-main {
 
-    .rankpilot-project-main {
       display: flex;
 
       align-items: center;
+
+      min-width: 0;
 
       gap: 14px;
 
-      min-width: 0;
     }
 
+    .rp-project-icon {
 
-    .rankpilot-project-icon {
       width: 44px;
+
       height: 44px;
 
-      flex-shrink: 0;
+      flex:
+        0 0 auto;
 
       display: flex;
+
       align-items: center;
+
       justify-content: center;
 
       border-radius: 12px;
 
-      background: #eef2ff;
+      background:
+        #f3f4f6;
+
+      color:
+        #111827;
 
       font-size: 20px;
+
     }
 
+    .rp-project-info {
 
-    .rankpilot-project-info {
       min-width: 0;
+
     }
 
+    .rp-project-info h4 {
 
-    .rankpilot-project-info h3 {
-      margin: 0 0 3px;
+      margin: 0 0 4px;
 
-      font-size: 17px;
+      font-size: 16px;
 
-      color: #111827;
+      color:
+        #111827;
+
     }
 
+    .rp-project-info a {
 
-    .rankpilot-project-info p {
-      margin: 0 0 5px;
+      display: block;
 
       overflow: hidden;
 
@@ -4932,420 +5402,895 @@ function rankPilotInjectDashboardStyles() {
 
       white-space: nowrap;
 
-      color: #6366f1;
+      max-width:
+        480px;
+
+      color:
+        #4b5563;
+
+      text-decoration: none;
 
       font-size: 13px;
+
     }
 
+    .rp-project-info span {
 
-    .rankpilot-project-info small {
-      color: #9ca3af;
-
-      font-size: 11px;
-    }
-
-
-    .rankpilot-project-score {
-      min-width: 70px;
-
-      text-align: center;
-    }
-
-
-    .rankpilot-score {
       display: block;
 
-      font-size: 27px;
-      font-weight: 800;
+      margin-top: 4px;
+
+      color:
+        #9ca3af;
+
+      font-size: 12px;
+
     }
 
+    .rp-project-score {
 
-    .rankpilot-score.good {
-      color: #16a34a;
-    }
-
-
-    .rankpilot-score.warning {
-      color: #d97706;
-    }
-
-
-    .rankpilot-score.bad {
-      color: #dc2626;
-    }
-
-
-    .rankpilot-project-score small {
-      display: block;
-
-      font-size: 9px;
-      font-weight: 800;
-
-      letter-spacing: .08em;
-
-      color: #9ca3af;
-    }
-
-
-    .rankpilot-no-score {
-      display: block;
-
-      font-size: 27px;
-      font-weight: 800;
-
-      color: #9ca3af;
-    }
-
-
-    .rankpilot-project-actions {
       display: flex;
 
-      gap: 7px;
+      align-items: baseline;
+
+      gap: 2px;
+
+      white-space: nowrap;
+
+    }
+
+    .rp-project-score strong {
+
+      font-size: 30px;
+
+      color:
+        #111827;
+
+    }
+
+    .rp-project-score span {
+
+      color:
+        #9ca3af;
+
+      font-size: 13px;
+
+    }
+
+    .rp-no-score {
+
+      font-size: 28px;
+
+    }
+
+    .rp-project-actions {
+
+      display: flex;
 
       flex-wrap: wrap;
 
       justify-content: flex-end;
+
+      gap: 7px;
+
     }
 
+    .rp-project-actions button {
 
-    .rankpilot-project-actions button,
-    .rankpilot-history-actions button {
       border:
         1px solid #e5e7eb;
 
-      border-radius: 8px;
+      border-radius: 9px;
 
-      padding: 8px 11px;
+      padding:
+        8px 10px;
 
-      background: white;
+      background:
+        #ffffff;
 
-      color: #374151;
+      color:
+        #111827;
 
       font-size: 12px;
-      font-weight: 700;
+
+      font-weight: 600;
 
       cursor: pointer;
+
+    }
+
+    .rp-project-actions button:hover {
+
+      background:
+        #f9fafb;
+
+    }
+
+    .rp-project-actions
+    .rp-danger-button {
+
+      color:
+        #b91c1c;
+
     }
 
 
-    .rankpilot-project-actions button:hover,
-    .rankpilot-history-actions button:hover {
-      background: #f3f4f6;
-    }
+    /* ==========================================
+       EMPTY STATE
+    ========================================== */
 
+    .rp-empty-state {
 
-    .rankpilot-project-actions button.danger {
-      color: #dc2626;
-    }
+      padding:
+        55px 20px;
 
-
-    .rankpilot-empty-projects {
-      padding: 60px 20px;
-
-      text-align: center;
-
-      background: white;
+      text-align:
+        center;
 
       border:
         1px dashed #d1d5db;
 
       border-radius: 18px;
+
+      background:
+        #f9fafb;
+
     }
 
+    .rp-empty-icon {
 
-    .rankpilot-empty-icon {
-      font-size: 38px;
+      margin-bottom: 12px;
 
-      margin-bottom: 10px;
+      font-size: 36px;
+
     }
 
+    .rp-empty-state h3 {
 
-    .rankpilot-empty-projects h3 {
-      margin: 0 0 7px;
+      margin:
+        0 0 8px;
 
-      color: #111827;
+      color:
+        #111827;
+
     }
 
+    .rp-empty-state p {
 
-    .rankpilot-empty-projects p {
-      max-width: 500px;
+      max-width:
+        500px;
 
-      margin: 0 auto 20px;
+      margin:
+        0 auto 18px;
 
-      color: #6b7280;
+      color:
+        #6b7280;
+
+      font-size: 14px;
 
       line-height: 1.6;
+
     }
 
 
-    .rankpilot-back-button {
-      margin-bottom: 22px;
+    /* ==========================================
+       CREATE PROJECT
+    ========================================== */
+
+    .rp-create-project-area {
+
+      margin-top: 20px;
+
+    }
+
+    .rp-create-box {
+
+      padding: 22px;
+
+      border:
+        1px solid #e5e7eb;
+
+      border-radius: 16px;
+
+      background:
+        #f9fafb;
+
+    }
+
+    .rp-create-header {
+
+      display: flex;
+
+      align-items: flex-start;
+
+      justify-content: space-between;
+
+      gap: 20px;
+
+      margin-bottom: 20px;
+
+    }
+
+    .rp-create-header h3 {
+
+      margin: 0;
+
+      color:
+        #111827;
+
+    }
+
+    .rp-create-header p {
+
+      margin:
+        5px 0 0;
+
+      color:
+        #6b7280;
+
+      font-size: 13px;
+
+    }
+
+    .rp-create-close {
 
       border: 0;
 
-      background: transparent;
+      background:
+        transparent;
 
-      color: #4f46e5;
+      color:
+        #6b7280;
+
+      font-size: 24px;
+
+      cursor: pointer;
+
+    }
+
+    .rp-create-form {
+
+      display: grid;
+
+      grid-template-columns:
+        1fr 1fr auto;
+
+      align-items: end;
+
+      gap: 14px;
+
+    }
+
+    .rp-field label {
+
+      display: block;
+
+      margin-bottom: 6px;
+
+      color:
+        #374151;
+
+      font-size: 12px;
+
+      font-weight: 700;
+
+    }
+
+    .rp-field input {
+
+      width: 100%;
+
+      box-sizing: border-box;
+
+      padding:
+        11px 12px;
+
+      border:
+        1px solid #d1d5db;
+
+      border-radius: 10px;
+
+      background:
+        #ffffff;
+
+      color:
+        #111827;
+
+      outline: none;
+
+    }
+
+    .rp-field input:focus {
+
+      border-color:
+        #6b7280;
+
+    }
+
+
+    /* ==========================================
+       PROJECT DETAIL
+    ========================================== */
+
+    .rp-back-button {
+
+      border: 0;
+
+      background:
+        transparent;
+
+      padding: 0;
+
+      margin-bottom: 25px;
+
+      color:
+        #4b5563;
+
+      font-size: 13px;
 
       font-weight: 700;
 
       cursor: pointer;
+
     }
 
+    .rp-detail-header {
 
-    .rankpilot-project-detail-header {
       display: flex;
 
       justify-content: space-between;
 
       align-items: center;
 
-      gap: 20px;
+      gap: 25px;
 
       margin-bottom: 25px;
-    }
 
-
-    .rankpilot-project-detail-header > div span {
-      font-size: 10px;
-      font-weight: 800;
-
-      letter-spacing: .1em;
-
-      color: #6b7280;
-    }
-
-
-    .rankpilot-project-detail-header h2 {
-      margin: 4px 0;
-
-      font-size: 28px;
-
-      color: #111827;
-    }
-
-
-    .rankpilot-project-detail-header p {
-      margin: 0;
-
-      color: #6366f1;
-    }
-
-
-    .rankpilot-latest-analysis {
-      display: grid;
-
-      grid-template-columns:
-        1fr 1fr;
-
-      gap: 16px;
-
-      margin-bottom: 30px;
-    }
-
-
-    .rankpilot-latest-analysis > div {
-      padding: 22px;
-
-      background: white;
+      padding:
+        25px;
 
       border:
         1px solid #e5e7eb;
 
-      border-radius: 16px;
+      border-radius: 18px;
+
+      background:
+        #f9fafb;
+
     }
 
+    .rp-detail-header h2 {
 
-    .rankpilot-latest-analysis strong {
+      margin:
+        0 0 7px;
+
+      font-size: 27px;
+
+      color:
+        #111827;
+
+    }
+
+    .rp-detail-header a {
+
+      color:
+        #4b5563;
+
+      font-size: 13px;
+
+      text-decoration: none;
+
+    }
+
+    .rp-detail-score {
+
+      text-align:
+        right;
+
+      white-space:
+        nowrap;
+
+    }
+
+    .rp-detail-score span {
+
       display: block;
 
-      margin-top: 6px;
+      margin-bottom: 3px;
 
-      font-size: 34px;
+      color:
+        #6b7280;
 
-      color: #111827;
+      font-size: 11px;
+
+      font-weight: 800;
+
+      letter-spacing:
+        0.08em;
+
+    }
+
+    .rp-detail-score strong {
+
+      font-size: 52px;
+
+      line-height: 1;
+
+      color:
+        #111827;
+
+    }
+
+    .rp-detail-score small {
+
+      color:
+        #9ca3af;
+
+      font-size: 14px;
+
+    }
+
+    .rp-detail-actions {
+
+      margin-bottom: 30px;
+
     }
 
 
-    .rankpilot-latest-analysis p {
-      margin: 7px 0 0;
+    /* ==========================================
+       SECTIONS
+    ========================================== */
 
-      color: #4b5563;
+    .rp-evolution-section,
+    .rp-history-section {
+
+      margin-top: 25px;
+
+      padding:
+        22px;
+
+      border:
+        1px solid #e5e7eb;
+
+      border-radius: 18px;
+
+      background:
+        #ffffff;
+
+    }
+
+    .rp-section-heading {
+
+      margin-bottom: 20px;
+
+    }
+
+    .rp-section-heading h3 {
+
+      margin: 0;
+
+      color:
+        #111827;
+
+      font-size: 19px;
+
+    }
+
+    .rp-section-heading p {
+
+      margin:
+        5px 0 0;
+
+      color:
+        #6b7280;
+
+      font-size: 13px;
+
     }
 
 
-    .rankpilot-no-analysis,
-    .rankpilot-empty-history {
-      padding: 30px;
+    /* ==========================================
+       CHART
+    ========================================== */
 
-      margin-bottom: 25px;
+    .rp-chart-wrapper {
 
-      background: white;
+      width: 100%;
+
+      overflow-x: auto;
+
+    }
+
+    .rp-evolution-svg {
+
+      width: 100%;
+
+      min-width: 620px;
+
+      height: auto;
+
+      display: block;
+
+    }
+
+    .rp-chart-grid {
+
+      stroke:
+        #e5e7eb;
+
+      stroke-width:
+        1;
+
+    }
+
+    .rp-chart-label {
+
+      fill:
+        #9ca3af;
+
+      font-size:
+        11px;
+
+    }
+
+    .rp-chart-line {
+
+      stroke:
+        #111827;
+
+      stroke-width:
+        3;
+
+      stroke-linecap:
+        round;
+
+      stroke-linejoin:
+        round;
+
+    }
+
+    .rp-chart-point {
+
+      fill:
+        #ffffff;
+
+      stroke:
+        #111827;
+
+      stroke-width:
+        3;
+
+    }
+
+    .rp-chart-score {
+
+      fill:
+        #111827;
+
+      font-size:
+        12px;
+
+      font-weight:
+        700;
+
+    }
+
+    .rp-chart-date {
+
+      fill:
+        #9ca3af;
+
+      font-size:
+        10px;
+
+    }
+
+    .rp-chart-empty {
+
+      padding:
+        35px;
+
+      text-align:
+        center;
 
       border:
         1px dashed #d1d5db;
 
-      border-radius: 16px;
+      border-radius:
+        12px;
 
-      color: #6b7280;
+      color:
+        #6b7280;
+
+      background:
+        #f9fafb;
+
+      font-size:
+        13px;
+
     }
 
 
-    .rankpilot-no-analysis h3 {
-      margin-top: 0;
+    /* ==========================================
+       HISTORY
+    ========================================== */
 
-      color: #111827;
+    .rp-history-list {
+
+      display:
+        grid;
+
+      gap:
+        8px;
+
     }
 
+    .rp-history-item {
 
-    .rankpilot-history-header {
-      display: flex;
-
-      justify-content: space-between;
-      align-items: center;
-
-      margin-bottom: 14px;
-    }
-
-
-    .rankpilot-history-list {
-      display: grid;
-
-      gap: 10px;
-    }
-
-
-    .rankpilot-history-item {
-      display: grid;
+      display:
+        grid;
 
       grid-template-columns:
-        auto minmax(0,1fr) auto auto;
+        1fr auto auto;
 
-      align-items: center;
+      align-items:
+        center;
 
-      gap: 15px;
+      gap:
+        20px;
 
-      padding: 15px 17px;
-
-      background: white;
+      padding:
+        14px 15px;
 
       border:
         1px solid #e5e7eb;
 
-      border-radius: 13px;
+      border-radius:
+        12px;
+
+    }
+
+    .rp-history-date strong {
+
+      display:
+        block;
+
+      color:
+        #111827;
+
+      font-size:
+        13px;
+
+    }
+
+    .rp-history-date span {
+
+      display:
+        block;
+
+      margin-top:
+        3px;
+
+      color:
+        #9ca3af;
+
+      font-size:
+        11px;
+
+    }
+
+    .rp-history-score {
+
+      display:
+        flex;
+
+      align-items:
+        baseline;
+
+      gap:
+        2px;
+
+    }
+
+    .rp-history-score strong {
+
+      color:
+        #111827;
+
+      font-size:
+        24px;
+
+    }
+
+    .rp-history-score span {
+
+      color:
+        #9ca3af;
+
+      font-size:
+        12px;
+
+    }
+
+    .rp-history-actions button {
+
+      border:
+        1px solid #e5e7eb;
+
+      border-radius:
+        8px;
+
+      padding:
+        7px 10px;
+
+      background:
+        #ffffff;
+
+      color:
+        #111827;
+
+      font-size:
+        12px;
+
+      font-weight:
+        600;
+
+      cursor:
+        pointer;
+
+    }
+
+    .rp-empty-history {
+
+      padding:
+        30px;
+
+      text-align:
+        center;
+
+      color:
+        #6b7280;
+
+      font-size:
+        13px;
+
+      background:
+        #f9fafb;
+
+      border-radius:
+        12px;
+
     }
 
 
-    .rankpilot-history-number {
-      width: 30px;
-      height: 30px;
+    /* ==========================================
+       MOBILE
+    ========================================== */
 
-      display: flex;
-
-      align-items: center;
-      justify-content: center;
-
-      border-radius: 9px;
-
-      background: #f3f4f6;
-
-      color: #6b7280;
-
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-
-    .rankpilot-history-info strong {
-      display: block;
-
-      color: #111827;
-    }
-
-
-    .rankpilot-history-info span {
-      display: block;
-
-      margin-top: 3px;
-
-      color: #9ca3af;
-
-      font-size: 11px;
-    }
-
-
-    .rankpilot-history-score strong {
-      font-size: 22px;
-
-      color: #111827;
-    }
-
-
-    .rankpilot-history-score span {
-      color: #9ca3af;
-
-      font-size: 12px;
-    }
-
-
-    body.rankpilot-dashboard-open {
-      overflow: hidden;
-    }
-
-
-    @media (max-width: 800px) {
+    @media (
+      max-width: 760px
+    ) {
 
       #rankpilotDashboardButton {
-        top: 12px;
-        right: 12px;
+
+        bottom: 14px;
+
+        right: 14px;
+
+        top: auto;
+
+        padding:
+          10px 13px;
+
+        font-size:
+          13px;
+
       }
 
-      .rankpilot-dashboard-panel {
+      .rp-dashboard-panel {
+
         top: 0;
+
         width: 100vw;
+
         height: 100vh;
 
-        border-radius: 0;
+        border-radius:
+          0;
+
       }
 
-      .rankpilot-dashboard-header,
-      .rankpilot-dashboard-content {
-        padding-left: 18px;
-        padding-right: 18px;
+      .rp-dashboard-header {
+
+        padding:
+          20px;
+
       }
 
-      .rankpilot-dashboard-stats {
-        grid-template-columns: 1fr;
+      .rp-dashboard-content {
+
+        padding:
+          20px;
+
       }
 
-      .rankpilot-project-card {
-        grid-template-columns: 1fr;
-      }
+      .rp-dashboard-stats {
 
-      .rankpilot-project-actions {
-        justify-content: flex-start;
-      }
-
-      .rankpilot-form-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .rankpilot-project-detail-header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .rankpilot-latest-analysis {
-        grid-template-columns: 1fr;
-      }
-
-      .rankpilot-history-item {
         grid-template-columns:
-          auto minmax(0,1fr) auto;
+          1fr;
+
       }
 
-      .rankpilot-history-actions {
-        grid-column: 2 / -1;
+      .rp-dashboard-toolbar {
+
+        align-items:
+          flex-start;
+
+        flex-direction:
+          column;
+
+      }
+
+      .rp-project-card {
+
+        grid-template-columns:
+          1fr;
+
+        gap:
+          15px;
+
+      }
+
+      .rp-project-actions {
+
+        justify-content:
+          flex-start;
+
+      }
+
+      .rp-project-info a {
+
+        max-width:
+          100%;
+
+      }
+
+      .rp-create-form {
+
+        grid-template-columns:
+          1fr;
+
+      }
+
+      .rp-detail-header {
+
+        flex-direction:
+          column;
+
+        align-items:
+          flex-start;
+
+      }
+
+      .rp-detail-score {
+
+        text-align:
+          left;
+
+      }
+
+      .rp-history-item {
+
+        grid-template-columns:
+          1fr auto;
+
+      }
+
+      .rp-history-actions {
+
+        grid-column:
+          1 / -1;
+
       }
 
     }
@@ -5355,10 +6300,9 @@ function rankPilotInjectDashboardStyles() {
   document.head.appendChild(style);
 }
 
-
-/* =========================================================
-   INITIALIZATION
-   ========================================================= */
+/* ---------------------------------------------------------
+   INITIALIZE DASHBOARD
+--------------------------------------------------------- */
 
 function rankPilotInitializeDashboard() {
   rankPilotInjectDashboardStyles();
@@ -5368,41 +6312,32 @@ function rankPilotInitializeDashboard() {
   rankPilotCreateDashboardModal();
 
   rankPilotInstallAnalysisHook();
-
-  rankPilotUpdateDashboardButton();
 }
 
+/* ---------------------------------------------------------
+   START
+--------------------------------------------------------- */
 
-/*
-  Esperamos a que el resto de app.js haya terminado
-  de declarar renderResults y las demás funciones.
-*/
-
-if (document.readyState === "loading") {
+if (
+  document.readyState ===
+  "loading"
+) {
 
   document.addEventListener(
     "DOMContentLoaded",
-    () => {
-      setTimeout(
-        rankPilotInitializeDashboard,
-        100
-      );
-    }
+    rankPilotInitializeDashboard
   );
 
 } else {
 
-  setTimeout(
-    rankPilotInitializeDashboard,
-    100
-  );
+  rankPilotInitializeDashboard();
 
 }
 
 
-/* =========================================================
+/* ---------------------------------------------------------
    GLOBAL FUNCTIONS
-   ========================================================= */
+--------------------------------------------------------- */
 
 window.rankPilotOpenDashboard =
   rankPilotOpenDashboard;
@@ -5410,23 +6345,20 @@ window.rankPilotOpenDashboard =
 window.rankPilotCloseDashboard =
   rankPilotCloseDashboard;
 
-window.rankPilotShowNewProjectForm =
-  rankPilotShowNewProjectForm;
-
-window.rankPilotHideNewProjectForm =
-  rankPilotHideNewProjectForm;
-
-window.rankPilotCreateProjectFromForm =
-  rankPilotCreateProjectFromForm;
-
 window.rankPilotOpenProject =
   rankPilotOpenProject;
 
 window.rankPilotAnalyzeProject =
   rankPilotAnalyzeProject;
 
+window.rankPilotShowCreateProject =
+  rankPilotShowCreateProject;
+
+window.rankPilotHideCreateProject =
+  rankPilotHideCreateProject;
+
+window.rankPilotConfirmDeleteProject =
+  rankPilotConfirmDeleteProject;
+
 window.rankPilotRestoreAnalysis =
   rankPilotRestoreAnalysis;
-
-window.rankPilotDeleteProject =
-  rankPilotDeleteProject;
