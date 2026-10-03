@@ -6362,3 +6362,88 @@ window.rankPilotConfirmDeleteProject =
 
 window.rankPilotRestoreAnalysis =
   rankPilotRestoreAnalysis;
+
+/* =========================================================
+   RANKPILOT — SAAS ACCOUNT / PLANS UI
+   ========================================================= */
+
+const RANKPILOT_ACCOUNT_KEY =
+  "rankpilot_account_v1";
+
+/* ---------------------------------------------------------
+   ACCOUNT
+--------------------------------------------------------- */
+
+function rankPilotGetAccount() {
+  try {
+    const saved =
+      localStorage.getItem(
+        RANKPILOT_ACCOUNT_KEY
+      );
+
+    if (!saved) {
+      return {
+        name: "Usuario",
+        email: "",
+        plan: "free"
+      };
+    }
+
+    return JSON.parse(saved);
+
+  } catch (error) {
+
+    console.error(
+      "RankPilot: error leyendo cuenta",
+      error
+    );
+
+    return {
+      name: "Usuario",
+      email: "",
+      plan: "free"
+    };
+  }
+}
+
+function rankPilotSaveAccount(account) {
+
+  localStorage.setItem(
+    RANKPILOT_ACCOUNT_KEY,
+    JSON.stringify(account)
+  );
+}
+
+/* ---------------------------------------------------------
+   PLAN HELPERS
+--------------------------------------------------------- */
+
+function rankPilotGetPlanName(plan) {
+
+  const names = {
+    free: "Free",
+    pro: "Pro",
+    business: "Business"
+  };
+
+  return names[plan] || "Free";
+}
+
+function rankPilotGetPlanDescription(plan) {
+
+  const descriptions = {
+
+    free:
+      "Para empezar a analizar y mejorar tu SEO.",
+
+    pro:
+      "Para profesionales y negocios que quieren crecer.",
+
+    business:
+      "Para agencias y equipos que gestionan múltiples webs."
+
+  };
+
+  return (
+    descriptions[plan] ||
+    descriptions
