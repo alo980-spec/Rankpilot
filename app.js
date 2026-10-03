@@ -9385,3 +9385,759 @@ if (
   }
 
 })();
+
+/* =========================================================
+   RANKPILOT — PLANES Y ENTITLEMENTS 1.0
+   Starter / Pro / Agency
+   ========================================================= */
+
+(function () {
+  "use strict";
+
+  const PLAN_STORAGE_KEY = "rankpilot_plan_v1";
+
+  const RANKPILOT_PLANS = {
+    starter: {
+      key: "starter",
+      name: "Starter",
+      price: 0,
+      description: "Para empezar a mejorar el SEO de tu web.",
+      features: [
+        "Análisis SEO básico",
+        "1 proyecto",
+        "5 análisis al mes",
+        "SEO Score",
+        "SEO Action Plan",
+        "Recomendaciones SEO"
+      ]
+    },
+
+    pro: {
+      key: "pro",
+      name: "Pro",
+      price: 19,
+      description: "Para negocios que quieren trabajar su SEO de forma continua.",
+      features: [
+        "Todo lo incluido en Starter",
+        "10 proyectos",
+        "100 análisis al mes",
+        "Keyword Intelligence",
+        "Keyword Recommendations",
+        "Competitor Analysis",
+        "Informes SEO avanzados",
+        "Funciones IA"
+      ]
+    },
+
+    agency: {
+      key: "agency",
+      name: "Agency",
+      price: 49,
+      description: "Para agencias y profesionales que gestionan múltiples webs.",
+      features: [
+        "Todo lo incluido en Pro",
+        "Proyectos ilimitados",
+        "Análisis ilimitados",
+        "Competidores avanzados",
+        "Informes para clientes",
+        "White-label",
+        "Gestión de clientes",
+        "Funciones avanzadas de IA"
+      ]
+    }
+  };
+
+  /* ---------------------------------------------------------
+     PLAN ACTUAL
+     --------------------------------------------------------- */
+
+  function getCurrentPlan() {
+    const savedPlan =
+      localStorage.getItem(PLAN_STORAGE_KEY);
+
+    if (
+      savedPlan &&
+      RANKPILOT_PLANS[savedPlan]
+    ) {
+      return savedPlan;
+    }
+
+    return "starter";
+  }
+
+  function setCurrentPlan(plan) {
+    if (!RANKPILOT_PLANS[plan]) return;
+
+    localStorage.setItem(
+      PLAN_STORAGE_KEY,
+      plan
+    );
+
+    updatePlanUI();
+  }
+
+  window.getRankPilotPlan = getCurrentPlan;
+
+  window.setRankPilotPlan = setCurrentPlan;
+
+  /* ---------------------------------------------------------
+     ENTITLEMENTS
+     --------------------------------------------------------- */
+
+  const PLAN_FEATURES = {
+
+    starter: {
+      seoAudit: true,
+      actionPlan: true,
+      keywordIntelligence: false,
+      keywordRecommendations: true,
+      competitors: false,
+      reports: false,
+      aiAssistant: false,
+      whiteLabel: false,
+      clientManagement: false
+    },
+
+    pro: {
+      seoAudit: true,
+      actionPlan: true,
+      keywordIntelligence: true,
+      keywordRecommendations: true,
+      competitors: true,
+      reports: true,
+      aiAssistant: true,
+      whiteLabel: false,
+      clientManagement: false
+    },
+
+    agency: {
+      seoAudit: true,
+      actionPlan: true,
+      keywordIntelligence: true,
+      keywordRecommendations: true,
+      competitors: true,
+      reports: true,
+      aiAssistant: true,
+      whiteLabel: true,
+      clientManagement: true
+    }
+
+  };
+
+  function hasFeature(feature) {
+
+    const plan = getCurrentPlan();
+
+    return !!(
+      PLAN_FEATURES[plan] &&
+      PLAN_FEATURES[plan][feature]
+    );
+  }
+
+  window.rankPilotHasFeature = hasFeature;
+
+  /* ---------------------------------------------------------
+     CSS
+     --------------------------------------------------------- */
+
+  function injectPlanStyles() {
+
+    if (
+      document.getElementById(
+        "rankpilotPlanStyles"
+      )
+    ) {
+      return;
+    }
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "rankpilotPlanStyles";
+
+    style.textContent = `
+
+      .rp-plan-section {
+        margin-top: 28px;
+      }
+
+      .rp-plan-grid {
+        display: grid;
+        grid-template-columns:
+          repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .rp-plan-card {
+        position: relative;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 24px;
+        background: #ffffff;
+      }
+
+      .rp-plan-card.rp-plan-current {
+        border: 2px solid #2563eb;
+      }
+
+      .rp-plan-popular {
+        position: absolute;
+        top: -11px;
+        left: 20px;
+        background: #2563eb;
+        color: #ffffff;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .rp-plan-name {
+        font-size: 19px;
+        font-weight: 800;
+        color: #111827;
+      }
+
+      .rp-plan-price {
+        margin-top: 10px;
+        font-size: 34px;
+        font-weight: 900;
+        color: #111827;
+      }
+
+      .rp-plan-price small {
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748b;
+      }
+
+      .rp-plan-description {
+        min-height: 48px;
+        margin: 12px 0 18px;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .rp-plan-features {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0;
+      }
+
+      .rp-plan-features li {
+        margin: 9px 0;
+        font-size: 13px;
+        color: #334155;
+      }
+
+      .rp-plan-features li::before {
+        content: "✓";
+        margin-right: 8px;
+        color: #2563eb;
+        font-weight: 800;
+      }
+
+      .rp-plan-button {
+        width: 100%;
+        border: 0;
+        border-radius: 9px;
+        padding: 11px 15px;
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .rp-plan-button-primary {
+        background: #2563eb;
+        color: white;
+      }
+
+      .rp-plan-button-secondary {
+        background: #eef2f7;
+        color: #334155;
+      }
+
+      .rp-current-plan-badge {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 5px 9px;
+        border-radius: 20px;
+        background: #e8f0ff;
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .rp-plan-note {
+        margin-top: 18px;
+        padding: 14px;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 12px;
+      }
+
+      @media (max-width: 900px) {
+
+        .rp-plan-grid {
+          grid-template-columns: 1fr;
+        }
+
+      }
+
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /* ---------------------------------------------------------
+     RENDER PLANES
+     --------------------------------------------------------- */
+
+  function renderPlans(container) {
+
+    injectPlanStyles();
+
+    const currentPlan =
+      getCurrentPlan();
+
+    container.innerHTML = `
+
+      <h2 class="rp-section-title">
+        Tu plan
+      </h2>
+
+      <p class="rp-dashboard-subtitle">
+        Elige las herramientas que necesitas para trabajar
+        el SEO de tus proyectos.
+      </p>
+
+      <div class="rp-plan-grid">
+
+        ${Object.values(RANKPILOT_PLANS)
+          .map(function (plan) {
+
+            const isCurrent =
+              plan.key === currentPlan;
+
+            const isPro =
+              plan.key === "pro";
+
+            return `
+
+              <div class="
+                rp-plan-card
+                ${isCurrent
+                  ? "rp-plan-current"
+                  : ""}
+              ">
+
+                ${
+                  isPro
+                    ? `
+                      <div class="rp-plan-popular">
+                        MÁS POPULAR
+                      </div>
+                    `
+                    : ""
+                }
+
+                <div class="rp-plan-name">
+                  ${plan.name}
+                </div>
+
+                ${
+                  isCurrent
+                    ? `
+                      <div class="rp-current-plan-badge">
+                        PLAN ACTUAL
+                      </div>
+                    `
+                    : ""
+                }
+
+                <div class="rp-plan-price">
+                  ${plan.price}€
+                  <small>/mes</small>
+                </div>
+
+                <div class="rp-plan-description">
+                  ${plan.description}
+                </div>
+
+                <ul class="rp-plan-features">
+
+                  ${plan.features
+                    .map(
+                      feature =>
+                        `<li>${feature}</li>`
+                    )
+                    .join("")}
+
+                </ul>
+
+                <button
+                  class="
+                    rp-plan-button
+                    ${
+                      isCurrent
+                        ? "rp-plan-button-secondary"
+                        : "rp-plan-button-primary"
+                    }
+                  "
+                  ${
+                    isCurrent
+                      ? "disabled"
+                      : `onclick="window.selectRankPilotPlan('${plan.key}')"`
+                  }
+                >
+
+                  ${
+                    isCurrent
+                      ? "Plan actual"
+                      : plan.key === "starter"
+                        ? "Cambiar a Starter"
+                        : `Elegir ${plan.name}`
+                  }
+
+                </button>
+
+              </div>
+
+            `;
+
+          })
+          .join("")}
+
+      </div>
+
+      <div class="rp-plan-note">
+
+        <strong>
+          Próximo paso:
+        </strong>
+
+        Los botones funcionan ahora en modo demostración.
+        Más adelante conectaremos Stripe para que las
+        suscripciones sean reales.
+
+      </div>
+    `;
+  }
+
+  /* ---------------------------------------------------------
+     CAMBIAR PLAN — DEMO
+     --------------------------------------------------------- */
+
+  window.selectRankPilotPlan =
+    function (plan) {
+
+      if (
+        !RANKPILOT_PLANS[plan]
+      ) {
+        return;
+      }
+
+      const planData =
+        RANKPILOT_PLANS[plan];
+
+      if (plan === "starter") {
+
+        setCurrentPlan("starter");
+
+        refreshAccountSection();
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          `Has seleccionado el plan ${planData.name} (${planData.price} €/mes).
+
+En la siguiente fase conectaremos Stripe para realizar el pago.
+
+¿Quieres activar este plan en modo DEMO?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setCurrentPlan(plan);
+
+      refreshAccountSection();
+
+      alert(
+        `Plan ${planData.name} activado en modo DEMO.`
+      );
+    };
+
+  /* ---------------------------------------------------------
+     ACTUALIZAR MI CUENTA
+     --------------------------------------------------------- */
+
+  function refreshAccountSection() {
+
+    const modal =
+      document.getElementById(
+        "rankpilotDashboardModal"
+      );
+
+    if (
+      !modal ||
+      !modal.classList.contains("active")
+    ) {
+      return;
+    }
+
+    const active =
+      modal.querySelector(
+        "[data-rp-section].active"
+      );
+
+    if (
+      active &&
+      active.dataset.rpSection === "account"
+    ) {
+
+      const content =
+        document.getElementById(
+          "rankpilotDashboardContent"
+        );
+
+      if (content) {
+
+        renderAccountWithPlans(
+          content
+        );
+
+      }
+
+    }
+  }
+
+  /* ---------------------------------------------------------
+     MI CUENTA + PLANES
+     --------------------------------------------------------- */
+
+  function renderAccountWithPlans(
+    container
+  ) {
+
+    let account = null;
+
+    try {
+
+      account = JSON.parse(
+        localStorage.getItem(
+          "rankpilot_account_v1"
+        )
+      );
+
+    } catch {}
+
+    const name =
+      account?.name ||
+      account?.username ||
+      "Usuario";
+
+    const email =
+      account?.email ||
+      "Cuenta local";
+
+    const currentPlan =
+      RANKPILOT_PLANS[
+        getCurrentPlan()
+      ];
+
+    container.innerHTML = `
+
+      <h1 class="rp-dashboard-title">
+        Mi cuenta
+      </h1>
+
+      <p class="rp-dashboard-subtitle">
+        Gestiona tu cuenta y tu suscripción.
+      </p>
+
+      <div class="rp-project-card">
+
+        <div class="rp-project-info">
+
+          <strong>
+            ${escapeHTML(name)}
+          </strong>
+
+          <small>
+            ${escapeHTML(email)}
+          </small>
+
+        </div>
+
+      </div>
+
+      <div class="rp-plan-section">
+
+        <h2 class="rp-section-title">
+          Plan actual
+        </h2>
+
+        <div class="rp-project-card">
+
+          <div class="rp-project-info">
+
+            <strong>
+              ${currentPlan.name}
+            </strong>
+
+            <small>
+              ${currentPlan.description}
+            </small>
+
+          </div>
+
+          <div>
+            <strong>
+              ${currentPlan.price} €/mes
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="rp-plan-section">
+
+        <h2 class="rp-section-title">
+          Comparar planes
+        </h2>
+
+        <div id="rankpilotPlansContainer"></div>
+
+      </div>
+
+    `;
+
+    const plansContainer =
+      document.getElementById(
+        "rankpilotPlansContainer"
+      );
+
+    if (plansContainer) {
+      renderPlans(plansContainer);
+    }
+  }
+
+  /* ---------------------------------------------------------
+     MODIFICAR EL APARTADO MI CUENTA
+     --------------------------------------------------------- */
+
+  function patchDashboardAccount() {
+
+    if (
+      typeof window.renderDashboardSection !==
+      "function"
+    ) {
+      return;
+    }
+
+  }
+
+  /*
+    Interceptamos el clic de "Mi cuenta"
+    mediante delegación para que funcione
+    independientemente de cómo se haya creado
+    el Dashboard.
+  */
+
+  document.addEventListener(
+    "click",
+    function (event) {
+
+      const button =
+        event.target.closest(
+          "[data-rp-section='account']"
+        );
+
+      if (!button) return;
+
+      setTimeout(function () {
+
+        const content =
+          document.getElementById(
+            "rankpilotDashboardContent"
+          );
+
+        if (
+          content &&
+          document
+            .getElementById(
+              "rankpilotDashboardModal"
+            )
+            ?.classList.contains("active")
+        ) {
+
+          renderAccountWithPlans(
+            content
+          );
+
+        }
+
+      }, 20);
+
+    }
+  );
+
+  /* ---------------------------------------------------------
+     ACTUALIZAR UI GENERAL
+     --------------------------------------------------------- */
+
+  function updatePlanUI() {
+
+    const current =
+      RANKPILOT_PLANS[
+        getCurrentPlan()
+      ];
+
+    document
+      .querySelectorAll(
+        "[data-rankpilot-plan]"
+      )
+      .forEach(function (element) {
+
+        element.textContent =
+          current.name;
+
+      });
+  }
+
+  /* ---------------------------------------------------------
+     INIT
+     --------------------------------------------------------- */
+
+  function initPlanSystem() {
+
+    injectPlanStyles();
+
+    updatePlanUI();
+
+  }
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      initPlanSystem
+    );
+
+  } else {
+
+    initPlanSystem();
+
+  }
+
+})();
