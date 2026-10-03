@@ -5384,3 +5384,784 @@ document.addEventListener(
 
   }
 );
+
+/* =========================================================
+   RANKPILOT — REGISTRO DE USUARIO
+   ========================================================= */
+
+(function initRankPilotRegister() {
+
+    function start() {
+
+        // Evitar duplicados
+        if (document.getElementById("rankpilotRegisterModal")) {
+            return;
+        }
+
+        const loginBtn = document.getElementById("loginBtn");
+
+        if (!loginBtn) {
+            console.warn("RankPilot: no se encontró #loginBtn");
+            return;
+        }
+
+        /* =====================================================
+           AÑADIR "CREAR CUENTA" AL MENÚ EXISTENTE
+           ===================================================== */
+
+        const accountMenu = document.getElementById("rankpilotAccountMenu");
+
+        if (accountMenu) {
+
+            // Evitar duplicar el botón
+            if (!document.getElementById("rankpilotRegisterMenuItem")) {
+
+                const registerItem = document.createElement("button");
+
+                registerItem.id = "rankpilotRegisterMenuItem";
+                registerItem.type = "button";
+                registerItem.className = "rankpilot-account-menu-item";
+
+                registerItem.innerHTML = `
+                    <span>✨</span>
+                    <span>Crear cuenta</span>
+                `;
+
+                registerItem.addEventListener("click", function () {
+
+                    // Cerrar menú
+                    accountMenu.classList.remove("open");
+
+                    // Abrir registro
+                    openRegisterModal();
+                });
+
+                /*
+                 * Lo colocamos justo después de "Iniciar sesión"
+                 * si existe ese elemento.
+                 */
+
+                const firstItem = accountMenu.querySelector(
+                    '[data-action="login"], .rankpilot-login-menu-item'
+                );
+
+                if (firstItem && firstItem.parentNode) {
+                    firstItem.parentNode.insertBefore(
+                        registerItem,
+                        firstItem.nextSibling
+                    );
+                } else {
+                    accountMenu.insertBefore(
+                        registerItem,
+                        accountMenu.firstChild
+                    );
+                }
+            }
+        }
+
+        /* =====================================================
+           MODAL DE REGISTRO
+           ===================================================== */
+
+        const modal = document.createElement("div");
+
+        modal.id = "rankpilotRegisterModal";
+        modal.className = "rankpilot-auth-modal";
+
+        modal.innerHTML = `
+            <div class="rankpilot-auth-overlay"></div>
+
+            <div class="rankpilot-auth-box">
+
+                <button
+                    type="button"
+                    class="rankpilot-auth-close"
+                    id="rankpilotRegisterClose"
+                    aria-label="Cerrar"
+                >
+                    ×
+                </button>
+
+                <div class="rankpilot-auth-header">
+
+                    <div class="rankpilot-auth-logo">
+                        <span class="logo-mark">R</span>
+                    </div>
+
+                    <h2>Crear tu cuenta</h2>
+
+                    <p>
+                        Empieza a analizar y gestionar tus proyectos SEO
+                        con RankPilot.
+                    </p>
+
+                </div>
+
+                <form id="rankpilotRegisterForm">
+
+                    <div class="rankpilot-auth-field">
+
+                        <label for="rankpilotRegisterName">
+                            Nombre
+                        </label>
+
+                        <input
+                            type="text"
+                            id="rankpilotRegisterName"
+                            placeholder="Álvaro"
+                            autocomplete="name"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="rankpilot-auth-field">
+
+                        <label for="rankpilotRegisterEmail">
+                            Email
+                        </label>
+
+                        <input
+                            type="email"
+                            id="rankpilotRegisterEmail"
+                            placeholder="tu@email.com"
+                            autocomplete="email"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="rankpilot-auth-field">
+
+                        <label for="rankpilotRegisterPassword">
+                            Contraseña
+                        </label>
+
+                        <input
+                            type="password"
+                            id="rankpilotRegisterPassword"
+                            placeholder="Mínimo 8 caracteres"
+                            autocomplete="new-password"
+                            minlength="8"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="rankpilot-auth-field">
+
+                        <label for="rankpilotRegisterPassword2">
+                            Repetir contraseña
+                        </label>
+
+                        <input
+                            type="password"
+                            id="rankpilotRegisterPassword2"
+                            placeholder="Repite tu contraseña"
+                            autocomplete="new-password"
+                            minlength="8"
+                            required
+                        >
+
+                    </div>
+
+                    <label class="rankpilot-register-terms">
+
+                        <input
+                            type="checkbox"
+                            id="rankpilotRegisterTerms"
+                            required
+                        >
+
+                        <span>
+                            Acepto los términos y condiciones y la
+                            política de privacidad.
+                        </span>
+
+                    </label>
+
+                    <div
+                        id="rankpilotRegisterMessage"
+                        class="rankpilot-auth-message"
+                    ></div>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary rankpilot-auth-submit"
+                    >
+                        Crear cuenta
+                    </button>
+
+                </form>
+
+                <div class="rankpilot-auth-switch">
+
+                    ¿Ya tienes una cuenta?
+
+                    <button
+                        type="button"
+                        id="rankpilotGoToLogin"
+                    >
+                        Iniciar sesión
+                    </button>
+
+                </div>
+
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+
+        /* =====================================================
+           ESTILOS
+           ===================================================== */
+
+        if (!document.getElementById("rankpilotRegisterStyles")) {
+
+            const style = document.createElement("style");
+
+            style.id = "rankpilotRegisterStyles";
+
+            style.textContent = `
+
+                .rankpilot-auth-modal {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 99999;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }
+
+                .rankpilot-auth-modal.open {
+                    display: flex;
+                }
+
+                .rankpilot-auth-overlay {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(15, 23, 42, 0.65);
+                    backdrop-filter: blur(6px);
+                }
+
+                .rankpilot-auth-box {
+                    position: relative;
+                    z-index: 2;
+                    width: 100%;
+                    max-width: 460px;
+                    max-height: calc(100vh - 40px);
+                    overflow-y: auto;
+                    background: #ffffff;
+                    border-radius: 20px;
+                    padding: 32px;
+                    box-shadow:
+                        0 25px 70px rgba(15, 23, 42, 0.25);
+                }
+
+                .rankpilot-auth-close {
+                    position: absolute;
+                    top: 16px;
+                    right: 18px;
+                    border: 0;
+                    background: transparent;
+                    font-size: 28px;
+                    line-height: 1;
+                    cursor: pointer;
+                    color: #64748b;
+                }
+
+                .rankpilot-auth-close:hover {
+                    color: #0f172a;
+                }
+
+                .rankpilot-auth-header {
+                    text-align: center;
+                    margin-bottom: 26px;
+                }
+
+                .rankpilot-auth-logo {
+                    display: flex;
+                    justify-content: center;
+                    margin-bottom: 14px;
+                }
+
+                .rankpilot-auth-logo .logo-mark {
+                    width: 46px;
+                    height: 46px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 12px;
+                    background: #111827;
+                    color: #ffffff;
+                    font-weight: 800;
+                    font-size: 22px;
+                }
+
+                .rankpilot-auth-header h2 {
+                    margin: 0 0 8px;
+                    font-size: 26px;
+                    color: #0f172a;
+                }
+
+                .rankpilot-auth-header p {
+                    margin: 0;
+                    color: #64748b;
+                    font-size: 14px;
+                    line-height: 1.6;
+                }
+
+                .rankpilot-auth-field {
+                    margin-bottom: 17px;
+                }
+
+                .rankpilot-auth-field label {
+                    display: block;
+                    margin-bottom: 7px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #334155;
+                }
+
+                .rankpilot-auth-field input {
+                    width: 100%;
+                    box-sizing: border-box;
+                    padding: 12px 14px;
+                    border: 1px solid #dbe2ea;
+                    border-radius: 10px;
+                    background: #ffffff;
+                    color: #0f172a;
+                    font-size: 15px;
+                    outline: none;
+                    transition: border-color .2s, box-shadow .2s;
+                }
+
+                .rankpilot-auth-field input:focus {
+                    border-color: #6366f1;
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+                }
+
+                .rankpilot-register-terms {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 9px;
+                    margin: 4px 0 18px;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    color: #64748b;
+                    cursor: pointer;
+                }
+
+                .rankpilot-register-terms input {
+                    margin-top: 3px;
+                    flex-shrink: 0;
+                }
+
+                .rankpilot-auth-submit {
+                    width: 100%;
+                    margin-top: 4px;
+                }
+
+                .rankpilot-auth-message {
+                    min-height: 20px;
+                    margin-bottom: 8px;
+                    font-size: 13px;
+                    text-align: center;
+                }
+
+                .rankpilot-auth-message.error {
+                    color: #dc2626;
+                }
+
+                .rankpilot-auth-message.success {
+                    color: #16a34a;
+                }
+
+                .rankpilot-auth-switch {
+                    margin-top: 20px;
+                    padding-top: 18px;
+                    border-top: 1px solid #e5e7eb;
+                    text-align: center;
+                    color: #64748b;
+                    font-size: 14px;
+                }
+
+                .rankpilot-auth-switch button {
+                    border: 0;
+                    background: transparent;
+                    color: #4f46e5;
+                    font-weight: 600;
+                    cursor: pointer;
+                    padding: 0;
+                    margin-left: 4px;
+                }
+
+                .rankpilot-account-menu-item {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px 14px;
+                    border: 0;
+                    background: transparent;
+                    color: inherit;
+                    font: inherit;
+                    text-align: left;
+                    cursor: pointer;
+                }
+
+                .rankpilot-account-menu-item:hover {
+                    background: rgba(99, 102, 241, .08);
+                }
+
+                @media (max-width: 600px) {
+
+                    .rankpilot-auth-box {
+                        padding: 25px 20px;
+                        border-radius: 16px;
+                    }
+
+                    .rankpilot-auth-header h2 {
+                        font-size: 23px;
+                    }
+
+                }
+
+            `;
+
+            document.head.appendChild(style);
+        }
+
+
+        /* =====================================================
+           FUNCIONES
+           ===================================================== */
+
+        function openRegisterModal() {
+
+            const registerModal =
+                document.getElementById("rankpilotRegisterModal");
+
+            if (!registerModal) {
+                return;
+            }
+
+            registerModal.classList.add("open");
+
+            document.body.style.overflow = "hidden";
+
+            setTimeout(function () {
+
+                const nameInput =
+                    document.getElementById("rankpilotRegisterName");
+
+                if (nameInput) {
+                    nameInput.focus();
+                }
+
+            }, 100);
+        }
+
+
+        function closeRegisterModal() {
+
+            const registerModal =
+                document.getElementById("rankpilotRegisterModal");
+
+            if (!registerModal) {
+                return;
+            }
+
+            registerModal.classList.remove("open");
+
+            document.body.style.overflow = "";
+        }
+
+
+        /* =====================================================
+           REGISTRO
+           ===================================================== */
+
+        const registerForm =
+            document.getElementById("rankpilotRegisterForm");
+
+        if (registerForm) {
+
+            registerForm.addEventListener("submit", function (event) {
+
+                event.preventDefault();
+
+                const name =
+                    document.getElementById(
+                        "rankpilotRegisterName"
+                    ).value.trim();
+
+                const email =
+                    document.getElementById(
+                        "rankpilotRegisterEmail"
+                    ).value.trim().toLowerCase();
+
+                const password =
+                    document.getElementById(
+                        "rankpilotRegisterPassword"
+                    ).value;
+
+                const password2 =
+                    document.getElementById(
+                        "rankpilotRegisterPassword2"
+                    ).value;
+
+                const terms =
+                    document.getElementById(
+                        "rankpilotRegisterTerms"
+                    ).checked;
+
+                const registerMessage =
+                    document.getElementById(
+                        "rankpilotRegisterMessage"
+                    );
+
+
+                function showError(text) {
+
+                    registerMessage.textContent = text;
+                    registerMessage.className =
+                        "rankpilot-auth-message error";
+                }
+
+
+                if (!name) {
+                    showError("Introduce tu nombre.");
+                    return;
+                }
+
+                if (!email) {
+                    showError("Introduce un email válido.");
+                    return;
+                }
+
+                if (password.length < 8) {
+                    showError(
+                        "La contraseña debe tener al menos 8 caracteres."
+                    );
+                    return;
+                }
+
+                if (password !== password2) {
+                    showError("Las contraseñas no coinciden.");
+                    return;
+                }
+
+                if (!terms) {
+                    showError(
+                        "Debes aceptar los términos y condiciones."
+                    );
+                    return;
+                }
+
+
+                /*
+                 * Guardamos una cuenta DEMO local.
+                 *
+                 * IMPORTANTE:
+                 * Esto NO es todavía autenticación real.
+                 * Más adelante conectaremos esto con backend,
+                 * base de datos y recuperación de contraseña.
+                 */
+
+                const account = {
+
+                    name: name,
+
+                    email: email,
+
+                    password: password,
+
+                    plan: "starter",
+
+                    loggedIn: true,
+
+                    createdAt: new Date().toISOString()
+
+                };
+
+
+                localStorage.setItem(
+                    "rankpilot_account_v1",
+                    JSON.stringify(account)
+                );
+
+
+                registerMessage.textContent =
+                    "✓ Cuenta creada correctamente.";
+
+                registerMessage.className =
+                    "rankpilot-auth-message success";
+
+
+                /*
+                 * Actualizar inmediatamente el botón
+                 * existente de la cabecera.
+                 */
+
+                if (typeof window.rankPilotRefreshAccountUI === "function") {
+
+                    window.rankPilotRefreshAccountUI();
+
+                } else {
+
+                    // Fallback por si la función todavía no existe
+
+                    const firstName =
+                        name.split(" ")[0] || name;
+
+                    loginBtn.innerHTML =
+                        firstName + " ▾";
+
+                }
+
+
+                /*
+                 * Cerramos el modal después de una pequeña pausa
+                 * para que el usuario vea el mensaje de éxito.
+                 */
+
+                setTimeout(function () {
+
+                    closeRegisterModal();
+
+                    registerForm.reset();
+
+                    registerMessage.textContent = "";
+
+                }, 700);
+
+            });
+        }
+
+
+        /* =====================================================
+           CERRAR MODAL
+           ===================================================== */
+
+        const closeButton =
+            document.getElementById("rankpilotRegisterClose");
+
+        if (closeButton) {
+
+            closeButton.addEventListener(
+                "click",
+                closeRegisterModal
+            );
+
+        }
+
+
+        const overlay =
+            modal.querySelector(".rankpilot-auth-overlay");
+
+        if (overlay) {
+
+            overlay.addEventListener(
+                "click",
+                closeRegisterModal
+            );
+
+        }
+
+
+        /* =====================================================
+           PASAR DE REGISTRO A LOGIN
+           ===================================================== */
+
+        const goToLogin =
+            document.getElementById("rankpilotGoToLogin");
+
+        if (goToLogin) {
+
+            goToLogin.addEventListener("click", function () {
+
+                closeRegisterModal();
+
+                /*
+                 * Si ya existe el login modal de RankPilot,
+                 * lo abrimos.
+                 */
+
+                const loginModal =
+                    document.getElementById(
+                        "rankpilotLoginModal"
+                    );
+
+                if (loginModal) {
+
+                    loginModal.classList.add("open");
+
+                    document.body.style.overflow = "hidden";
+
+                    return;
+                }
+
+                /*
+                 * Si no existe, simulamos el click
+                 * del botón de cabecera.
+                 */
+
+                const currentAccount =
+                    JSON.parse(
+                        localStorage.getItem(
+                            "rankpilot_account_v1"
+                        ) || "null"
+                    );
+
+                if (!currentAccount || !currentAccount.loggedIn) {
+
+                    loginBtn.click();
+
+                }
+
+            });
+
+        }
+
+
+        /* =====================================================
+           ESC PARA CERRAR
+           ===================================================== */
+
+        document.addEventListener("keydown", function (event) {
+
+            if (event.key === "Escape") {
+
+                closeRegisterModal();
+
+            }
+
+        });
+
+
+        /* =====================================================
+           FUNCIÓN GLOBAL
+           ===================================================== */
+
+        window.rankPilotOpenRegister = openRegisterModal;
+
+    }
+
+
+    if (document.readyState === "loading") {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            start
+        );
+
+    } else {
+
+        start();
+
+    }
+
+})();
