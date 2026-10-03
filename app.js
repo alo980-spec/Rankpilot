@@ -10141,3 +10141,677 @@ En la siguiente fase conectaremos Stripe para realizar el pago.
   }
 
 })();
+
+/* =========================================================
+   RANKPILOT — PLAN LIMITS & FEATURE GATING 1.0
+   ========================================================= */
+
+(function () {
+  "use strict";
+
+  const PLAN_LIMITS = {
+    starter: {
+      projects: 1,
+      analysesPerMonth: 5
+    },
+
+    pro: {
+      projects: 10,
+      analysesPerMonth: 100
+    },
+
+    agency: {
+      projects: Infinity,
+      analysesPerMonth: Infinity
+    }
+  };
+
+  /* ---------------------------------------------------------
+     PLAN ACTUAL
+     --------------------------------------------------------- */
+
+  function getPlan() {
+    return (
+      localStorage.getItem(
+        "rankpilot_plan_v1"
+      ) || "starter"
+    );
+  }
+
+  function getLimits() {
+    return (
+      PLAN_LIMITS[getPlan()] ||
+      PLAN_LIMITS.starter
+    );
+  }
+
+  /* ---------------------------------------------------------
+     FECHA / MES
+     --------------------------------------------------------- */
+
+  function getCurrentMonthKey() {
+
+    const now = new Date();
+
+    return (
+      now.getFullYear() +
+      "-" +
+      String(
+        now.getMonth() + 1
+      ).padStart(2, "0")
+    );
+  }
+
+  /* ---------------------------------------------------------
+     PROYECTOS
+     --------------------------------------------------------- */
+
+  function getProjects() {
+
+    try {
+
+      return JSON.parse(
+        localStorage.getItem(
+          "rankpilot_projects_v1"
+        )
+      ) || [];
+
+    } catch {
+
+      return [];
+
+    }
+  }
+
+  function canCreateProject() {
+
+    const limits = getLimits();
+
+    const projects =
+      getProjects();
+
+    return (
+      projects.length <
+      limits.projects
+    );
+  }
+
+  /* ---------------------------------------------------------
+     ANÁLISIS DEL MES
+     --------------------------------------------------------- */
+
+  function getMonthlyAnalyses() {
+
+    const month =
+      getCurrentMonthKey();
+
+    const projects =
+      getProjects();
+
+    let count = 0;
+
+    projects.forEach(
+      function (project) {
+
+        if (
+          !Array.isArray(
+            project.analyses
+          )
+        ) {
+          return;
+        }
+
+        project.analyses.forEach(
+          function (analysis) {
+
+            if (!analysis.createdAt) {
+              return;
+            }
+
+            const date =
+              new Date(
+                analysis.createdAt
+              );
+
+            const analysisMonth =
+              date.getFullYear() +
+              "-" +
+              String(
+                date.getMonth() + 1
+              ).padStart(2, "0");
+
+            if (
+              analysisMonth === month
+            ) {
+              count++;
+            }
+
+          }
+        );
+
+      }
+    );
+
+    return count;
+  }
+
+  function canAnalyze() {
+
+    const limits =
+      getLimits();
+
+    return (
+      getMonthlyAnalyses() <
+      limits.analysesPerMonth
+    );
+  }
+
+  /* ---------------------------------------------------------
+     MODAL DE UPGRADE
+     --------------------------------------------------------- */
+
+  function injectUpgradeStyles() {
+
+    if (
+      document.getElementById(
+        "rankpilotUpgradeStyles"
+      )
+    ) {
+      return;
+    }
+
+    const style =
+      document.createElement(
+        "style"
+      );
+
+    style.id =
+      "rankpilotUpgradeStyles";
+
+    style.textContent = `
+
+      #rankpilotUpgradeModal {
+        position: fixed;
+        inset: 0;
+        z-index: 100001;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background:
+          rgba(15, 23, 42, .68);
+        backdrop-filter: blur(7px);
+      }
+
+      #rankpilotUpgradeModal.active {
+        display: flex;
+      }
+
+      .rp-upgrade-box {
+        width: min(480px, 100%);
+        background: #fff;
+        border-radius: 20px;
+        padding: 32px;
+        text-align: center;
+        box-shadow:
+          0 30px 80px rgba(0,0,0,.25);
+      }
+
+      .rp-upgrade-icon {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: #e8f0ff;
+        color: #2563eb;
+        font-size: 25px;
+        font-weight: 900;
+      }
+
+      .rp-upgrade-box h2 {
+        margin: 0;
+        color: #111827;
+      }
+
+      .rp-upgrade-box p {
+        color: #64748b;
+        line-height: 1.6;
+        font-size: 14px;
+        margin: 12px 0 22px;
+      }
+
+      .rp-upgrade-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      .rp-upgrade-actions button {
+        border: 0;
+        padding: 11px 18px;
+        border-radius: 9px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .rp-upgrade-primary {
+        background: #2563eb;
+        color: white;
+      }
+
+      .rp-upgrade-secondary {
+        background: #eef2f7;
+        color: #334155;
+      }
+
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function createUpgradeModal() {
+
+    if (
+      document.getElementById(
+        "rankpilotUpgradeModal"
+      )
+    ) {
+      return;
+    }
+
+    const modal =
+      document.createElement(
+        "div"
+      );
+
+    modal.id =
+      "rankpilotUpgradeModal";
+
+    modal.innerHTML = `
+
+      <div class="rp-upgrade-box">
+
+        <div class="rp-upgrade-icon">
+          ↑
+        </div>
+
+        <h2>
+          Mejora tu plan
+        </h2>
+
+        <p id="rankpilotUpgradeText">
+          Esta función está disponible
+          en un plan superior.
+        </p>
+
+        <div class="rp-upgrade-actions">
+
+          <button
+            class="rp-upgrade-secondary"
+            id="rankpilotUpgradeClose"
+          >
+            Ahora no
+          </button>
+
+          <button
+            class="rp-upgrade-primary"
+            id="rankpilotUpgradePlans"
+          >
+            Ver planes
+          </button>
+
+        </div>
+
+      </div>
+
+    `;
+
+    document.body.appendChild(
+      modal
+    );
+
+    document
+      .getElementById(
+        "rankpilotUpgradeClose"
+      )
+      .onclick =
+      closeUpgradeModal;
+
+    document
+      .getElementById(
+        "rankpilotUpgradePlans"
+      )
+      .onclick =
+      function () {
+
+        closeUpgradeModal();
+
+        if (
+          typeof window
+            .openRankPilotDashboard ===
+          "function"
+        ) {
+
+          window.openRankPilotDashboard(
+            "account"
+          );
+
+        }
+
+      };
+
+    modal.addEventListener(
+      "click",
+      function (event) {
+
+        if (
+          event.target === modal
+        ) {
+          closeUpgradeModal();
+        }
+
+      }
+    );
+  }
+
+  function openUpgradeModal(
+    message
+  ) {
+
+    injectUpgradeStyles();
+
+    createUpgradeModal();
+
+    const modal =
+      document.getElementById(
+        "rankpilotUpgradeModal"
+      );
+
+    const text =
+      document.getElementById(
+        "rankpilotUpgradeText"
+      );
+
+    if (text) {
+      text.textContent =
+        message ||
+        "Esta función está disponible en un plan superior.";
+    }
+
+    modal.classList.add(
+      "active"
+    );
+  }
+
+  function closeUpgradeModal() {
+
+    const modal =
+      document.getElementById(
+        "rankpilotUpgradeModal"
+      );
+
+    if (modal) {
+      modal.classList.remove(
+        "active"
+      );
+    }
+
+  }
+
+  /* ---------------------------------------------------------
+     COMPROBAR FUNCIÓN
+     --------------------------------------------------------- */
+
+  function requireFeature(
+    feature,
+    message
+  ) {
+
+    if (
+      typeof window
+        .rankPilotHasFeature ===
+      "function"
+    ) {
+
+      if (
+        window.rankPilotHasFeature(
+          feature
+        )
+      ) {
+        return true;
+      }
+
+    }
+
+    openUpgradeModal(
+      message ||
+      "Esta función no está disponible en tu plan actual."
+    );
+
+    return false;
+  }
+
+  window.rankPilotRequireFeature =
+    requireFeature;
+
+  /* ---------------------------------------------------------
+     COMPROBAR ANÁLISIS
+     --------------------------------------------------------- */
+
+  window.rankPilotCanAnalyze =
+    function () {
+
+      if (canAnalyze()) {
+        return true;
+      }
+
+      const limits =
+        getLimits();
+
+      openUpgradeModal(
+        `Has alcanzado el límite de ${limits.analysesPerMonth} análisis de tu plan este mes.`
+      );
+
+      return false;
+    };
+
+  /* ---------------------------------------------------------
+     COMPROBAR PROYECTOS
+     --------------------------------------------------------- */
+
+  window.rankPilotCanCreateProject =
+    function () {
+
+      if (
+        canCreateProject()
+      ) {
+        return true;
+      }
+
+      const limits =
+        getLimits();
+
+      openUpgradeModal(
+        `Tu plan permite un máximo de ${limits.projects} proyecto${limits.projects === 1 ? "" : "s"}.`
+      );
+
+      return false;
+    };
+
+  /* ---------------------------------------------------------
+     INTERCEPTAR EL FORMULARIO DE ANÁLISIS
+     --------------------------------------------------------- */
+
+  function protectAnalyzer() {
+
+    const form =
+      document.getElementById(
+        "seoForm"
+      );
+
+    if (!form) {
+      setTimeout(
+        protectAnalyzer,
+        1000
+      );
+      return;
+    }
+
+    /*
+      El listener se ejecuta antes del
+      listener que ya tenía el analizador.
+    */
+
+    form.addEventListener(
+      "submit",
+      function (event) {
+
+        if (
+          !canAnalyze()
+        ) {
+
+          event.preventDefault();
+          event.stopImmediatePropagation();
+
+          const limits =
+            getLimits();
+
+          openUpgradeModal(
+            `Has alcanzado el límite de ${limits.analysesPerMonth} análisis de tu plan este mes.`
+          );
+
+          return false;
+        }
+
+      },
+      true
+    );
+  }
+
+  /* ---------------------------------------------------------
+     BOTONES DE FEATURES PRO
+     --------------------------------------------------------- */
+
+  function protectFeatureButtons() {
+
+    document.addEventListener(
+      "click",
+      function (event) {
+
+        const button =
+          event.target.closest(
+            "[data-rankpilot-feature]"
+          );
+
+        if (!button) {
+          return;
+        }
+
+        const feature =
+          button.dataset
+            .rankpilotFeature;
+
+        if (
+          !requireFeature(
+            feature
+          )
+        ) {
+
+          event.preventDefault();
+          event.stopImmediatePropagation();
+
+        }
+
+      },
+      true
+    );
+  }
+
+  /* ---------------------------------------------------------
+     INDICADORES DE PLAN
+     --------------------------------------------------------- */
+
+  function injectPlanBadges() {
+
+    document
+      .querySelectorAll(
+        "[data-rankpilot-pro]"
+      )
+      .forEach(
+        function (element) {
+
+          if (
+            element.querySelector(
+              ".rp-pro-badge"
+            )
+          ) {
+            return;
+          }
+
+          const badge =
+            document.createElement(
+              "span"
+            );
+
+          badge.className =
+            "rp-pro-badge";
+
+          badge.textContent =
+            "PRO";
+
+          badge.style.cssText = `
+            display:inline-block;
+            margin-left:7px;
+            padding:3px 7px;
+            border-radius:20px;
+            background:#e8f0ff;
+            color:#2563eb;
+            font-size:9px;
+            font-weight:800;
+            vertical-align:middle;
+          `;
+
+          element.appendChild(
+            badge
+          );
+
+        }
+      );
+  }
+
+  /* ---------------------------------------------------------
+     INIT
+     --------------------------------------------------------- */
+
+  function init() {
+
+    injectUpgradeStyles();
+
+    protectAnalyzer();
+
+    protectFeatureButtons();
+
+    injectPlanBadges();
+
+  }
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      init
+    );
+
+  } else {
+
+    init();
+
+  }
+
+})();
