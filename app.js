@@ -10,44 +10,31 @@ let currentData = null;
 
 
 /* =========================================================
-   FORMULARIO
+   ANALIZADOR PRINCIPAL
 ========================================================= */
 
-if (form) {
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
 
-    let url = input.value.trim();
+  let url = input.value.trim();
 
-    if (!url) {
-      message.innerHTML = `
-        <div class="seo-error">
-          ❌ Introduce una URL.
-        </div>
-      `;
-      return;
-    }
+  if (!url) {
+    message.innerHTML = `
+      <div class="seo-error">
+        ❌ Introduce una URL.
+      </div>
+    `;
+    return;
+  }
 
-    if (!/^https?:\/\//i.test(url)) {
-      url = "https://" + url;
-    }
+  if (!/^https?:\/\//i.test(url)) {
+    url = "https://" + url;
+  }
 
-    currentMainUrl = url;
-
-    await analyzeWebsite(url);
-  });
-}
-
-
-/* =========================================================
-   ANALIZAR WEB
-========================================================= */
-
-async function analyzeWebsite(url, competitors = []) {
+  currentMainUrl = url;
 
   message.innerHTML = `
     <div class="seo-loading">
-
       <div class="loading-spinner"></div>
 
       <h3>
@@ -55,25 +42,14 @@ async function analyzeWebsite(url, competitors = []) {
       </h3>
 
       <p>
-        Revisando SEO técnico, contenido,
-        keywords e indexabilidad...
+        Revisando SEO técnico, contenido e indexabilidad...
       </p>
-
     </div>
   `;
 
   try {
-
-    const params = new URLSearchParams();
-
-    params.set("url", url);
-
-    competitors.forEach((competitor) => {
-      params.append("competitor", competitor);
-    });
-
     const response = await fetch(
-      `${WORKER_URL}?${params.toString()}`
+      `${WORKER_URL}?url=${encodeURIComponent(url)}`
     );
 
     const data = await response.json();
@@ -85,12 +61,15 @@ async function analyzeWebsite(url, competitors = []) {
     }
 
     currentData = data;
-    currentMainUrl = url;
+
+    currentMainUrl =
+      data.finalUrl ||
+      data.url ||
+      url;
 
     renderResults(data);
 
   } catch (error) {
-
     console.error(error);
 
     message.innerHTML = `
@@ -107,47 +86,48 @@ async function analyzeWebsite(url, competitors = []) {
       </div>
     `;
   }
-}
+});
 
 
 /* =========================================================
-   RENDER RESULTADOS
+   RESULTADOS
 ========================================================= */
 
 function renderResults(data) {
 
   const seo = data.seo || {};
 
-  const categories = seo.categories || {
-    technical: 0,
-    onPage: 0,
-    content: 0,
-    indexability: 0
-  };
+  const categories =
+    seo.categories || {};
+
+  const issues =
+    Array.isArray(seo.issues)
+      ? seo.issues
+      : [];
+
+  const warnings =
+    Array.isArray(seo.warnings)
+      ? seo.warnings
+      : [];
+
+  const passed =
+    Array.isArray(seo.passed)
+      ? seo.passed
+      : [];
+
+  const score =
+    Number(seo.score || 0);
 
   const criticalCount =
-    Array.isArray(seo.issues)
-      ? seo.issues.length
-      : 0;
+    issues.length;
 
   const warningCount =
-    Array.isArray(seo.warnings)
-      ? seo.warnings.length
-      : 0;
-
-  const passedCount =
-    Array.isArray(seo.passed)
-      ? seo.passed.length
-      : 0;
-
-  const hostname = getHostname(
-    data.finalUrl || currentMainUrl
-  );
-
+    warnings.length;
 
   message.innerHTML = `
 
     <div class="seo-dashboard">
+
 
       <!-- HEADER -->
 
@@ -160,16 +140,24 @@ function renderResults(data) {
           </span>
 
           <h2>
-            ${escapeHtml(hostname)}
+            ${escapeHtml(
+              getHostname(
+                data.finalUrl ||
+                currentMainUrl
+              )
+            )}
           </h2>
 
           <p>
             ${escapeHtml(
-              data.finalUrl || currentMainUrl
+              data.finalUrl ||
+              currentMainUrl ||
+              ""
             )}
           </p>
 
         </div>
+
 
         <button
           class="new-analysis"
@@ -184,16 +172,16 @@ function renderResults(data) {
       </div>
 
 
-      <!-- SCORE -->
+      <!-- SCORE PRINCIPAL -->
 
       <div class="main-score-card">
 
-        <div class="score-ring ${getStatus(seo.score)}">
+        <div class="score-ring ${getStatus(score)}">
 
           <div class="score-ring-inner">
 
             <strong>
-              ${Number(seo.score || 0)}
+              ${score}
             </strong>
 
             <span>
@@ -212,14 +200,14 @@ function renderResults(data) {
           </span>
 
           <h2>
-            ${getLabel(seo.score)}
+            ${getLabel(score)}
           </h2>
 
           <p>
             Tu página ha sido analizada en múltiples
-            factores técnicos, de contenido,
-            keywords e indexabilidad.
+            factores técnicos y de contenido.
           </p>
+
 
           <div class="score-stats">
 
@@ -232,7 +220,7 @@ function renderResults(data) {
             </span>
 
             <span>
-              🟢 ${passedCount} correctos
+              🟢 ${passed.length} correctos
             </span>
 
           </div>
@@ -242,36 +230,18 @@ function renderResults(data) {
       </div>
 
 
-      <!-- COMPETIDORES -->
+      <!-- REPORT -->
 
-      ${
-        data.competitors &&
-        data.competitors.length
-          ? renderCompetitorAnalysis(
-              data.competitorAnalysis,
-              data.competitors
-            )
-          : renderCompetitorCTA()
-      }
+      <div class="report-action">
 
+        <button
+          class="generate-report-button"
+          onclick="generateSEOReport()"
+        >
+          📄 Generar informe SEO
+        </button>
 
-      <!-- ACTION PLAN -->
-
-      ${renderActionPlan(
-        seo,
-        data.competitorAnalysis || null,
-        data.competitors || []
-      )}
-
-
-      <!-- KEYWORD INTELLIGENCE -->
-
-      ${renderKeywordIntelligence(seo)}
-
-
-      <!-- KEYWORD RECOMMENDATIONS -->
-
-      ${renderKeywordRecommendations(seo)}
+      </div>
 
 
       <!-- CATEGORÍAS -->
@@ -322,6 +292,26 @@ function renderResults(data) {
       </div>
 
 
+      <!-- SEO ACTION PLAN -->
+
+      ${renderActionPlan(seo)}
+
+
+      <!-- KEYWORD INTELLIGENCE -->
+
+      ${renderKeywordIntelligence(seo)}
+
+
+      <!-- KEYWORD RECOMMENDATIONS -->
+
+      ${renderKeywordRecommendations(seo)}
+
+
+      <!-- COMPETIDORES -->
+
+      ${renderCompetitorCTA()}
+
+
       <!-- PROBLEMAS -->
 
       <div class="section-title">
@@ -333,7 +323,7 @@ function renderResults(data) {
           </span>
 
           <h2>
-            Problemas detectados
+            Qué deberías solucionar
           </h2>
 
         </div>
@@ -344,8 +334,8 @@ function renderResults(data) {
       <div class="problems-card">
 
         ${
-          criticalCount
-            ? seo.issues
+          issues.length
+            ? issues
                 .map(
                   (issue, index) => `
 
@@ -355,10 +345,11 @@ function renderResults(data) {
                         ${index + 1}
                       </div>
 
+
                       <div class="problem-content">
 
                         <strong>
-                          ${escapeHtml(issue)}
+                          ${escapeHtml(String(issue))}
                         </strong>
 
                         <p>
@@ -368,12 +359,14 @@ function renderResults(data) {
 
                       </div>
 
+
                       <button
                         class="fix-button"
                         onclick="showFix(this)"
                       >
                         Cómo solucionarlo
                       </button>
+
 
                       <div class="fix-content">
 
@@ -385,24 +378,20 @@ function renderResults(data) {
                       </div>
 
                     </div>
-
                   `
                 )
                 .join("")
             : `
               <div class="empty-state">
-
-                🎉 No se han detectado
-                problemas críticos.
-
+                🎉 No se han detectado problemas críticos.
               </div>
             `
         }
 
 
         ${
-          warningCount
-            ? seo.warnings
+          warnings.length
+            ? warnings
                 .map(
                   (warning, index) => `
 
@@ -412,10 +401,11 @@ function renderResults(data) {
                         ${index + 1}
                       </div>
 
+
                       <div class="problem-content">
 
                         <strong>
-                          ${escapeHtml(warning)}
+                          ${escapeHtml(String(warning))}
                         </strong>
 
                         <p>
@@ -425,6 +415,7 @@ function renderResults(data) {
 
                       </div>
 
+
                       <button
                         class="fix-button"
                         onclick="showFix(this)"
@@ -432,16 +423,16 @@ function renderResults(data) {
                         Cómo solucionarlo
                       </button>
 
+
                       <div class="fix-content">
 
                         Optimiza este elemento siguiendo
-                        buenas prácticas SEO y vuelve
+                        las buenas prácticas SEO y vuelve
                         a analizar la página.
 
                       </div>
 
                     </div>
-
                   `
                 )
                 .join("")
@@ -475,67 +466,67 @@ function renderResults(data) {
         ${metric(
           "Title",
           seo.title || "No encontrado",
-          `${Number(seo.titleLength || 0)} caracteres`
+          `${seo.titleLength || 0} caracteres`
         )}
 
         ${metric(
           "Meta Description",
           seo.description || "No encontrada",
-          `${Number(seo.descriptionLength || 0)} caracteres`
+          `${seo.descriptionLength || 0} caracteres`
         )}
 
         ${metric(
           "H1",
-          Number(seo.h1Count || 0),
+          seo.h1Count ?? 0,
           "etiquetas"
         )}
 
         ${metric(
           "H2",
-          Number(seo.h2Count || 0),
+          seo.h2Count ?? 0,
           "etiquetas"
         )}
 
         ${metric(
           "H3",
-          Number(seo.h3Count || 0),
+          seo.h3Count ?? 0,
           "etiquetas"
         )}
 
         ${metric(
           "Contenido",
-          Number(seo.wordCount || 0),
+          seo.wordCount ?? 0,
           "palabras"
         )}
 
         ${metric(
           "Imágenes",
-          Number(seo.imageCount || 0),
+          seo.imageCount ?? 0,
           "total"
         )}
 
         ${metric(
           "Imágenes sin ALT",
-          Number(seo.imagesWithoutAlt || 0),
+          seo.imagesWithoutAlt ?? 0,
           "sin atributo ALT"
         )}
 
         ${metric(
           "Enlaces internos",
-          Number(seo.internalLinks || 0),
+          seo.internalLinks ?? 0,
           "enlaces"
         )}
 
         ${metric(
           "Enlaces externos",
-          Number(seo.externalLinks || 0),
+          seo.externalLinks ?? 0,
           "enlaces"
         )}
 
       </div>
 
 
-      <!-- TECHNICAL -->
+      <!-- TÉCNICO -->
 
       <div class="section-title">
 
@@ -599,7 +590,7 @@ function renderResults(data) {
       </div>
 
 
-      <!-- PASSED -->
+      <!-- CORRECTO -->
 
       <div class="passed-card">
 
@@ -616,7 +607,8 @@ function renderResults(data) {
             </strong>
 
             <p>
-              ${passedCount} comprobaciones superadas
+              ${passed.length}
+              comprobaciones superadas
             </p>
 
           </div>
@@ -627,20 +619,19 @@ function renderResults(data) {
         <div class="passed-list">
 
           ${
-            seo.passed &&
-            seo.passed.length
-              ? seo.passed
+            passed.length
+              ? passed
                   .map(
                     item => `
                       <div>
-                        ✓ ${escapeHtml(item)}
+                        ✓ ${escapeHtml(String(item))}
                       </div>
                     `
                   )
                   .join("")
               : `
                 <div>
-                  No hay comprobaciones disponibles.
+                  No hay comprobaciones registradas.
                 </div>
               `
           }
@@ -649,988 +640,199 @@ function renderResults(data) {
 
       </div>
 
+
     </div>
-
   `;
-
-
-  injectGlobalStyles();
 }
 
 
 /* =========================================================
-   ACTION PLAN
+   SEO ACTION PLAN
 ========================================================= */
 
-function renderActionPlan(
-  seo,
-  competitorAnalysis = null,
-  competitors = []
-) {
+function renderActionPlan(seo) {
 
-  const actions =
-    buildActionPlan(
-      seo,
-      competitorAnalysis,
-      competitors
-    );
+  const plan =
+    buildActionPlan(seo);
 
-
-  const high =
-    actions.filter(
-      action => action.priority === "high"
-    );
-
-
-  const medium =
-    actions.filter(
-      action => action.priority === "medium"
-    );
-
-
-  const opportunities =
-    actions.filter(
-      action => action.priority === "opportunity"
-    );
-
+  if (!plan.length) {
+    return "";
+  }
 
   return `
 
-    <section class="action-plan-section">
+    <div class="section-title">
 
-      <div class="section-title">
+      <div>
 
-        <div>
+        <span>
+          ACTION PLAN
+        </span>
 
-          <span>
-            ACTION PLAN
-          </span>
-
-          <h2>
-            Plan de acción SEO
-          </h2>
-
-          <p>
-            Prioriza las acciones que pueden tener
-            mayor impacto sobre tu posicionamiento.
-          </p>
-
-        </div>
+        <h2>
+          Plan de acción SEO
+        </h2>
 
       </div>
 
+    </div>
 
-      <div class="action-summary">
 
-        <div class="action-summary-card high">
+    <div class="action-plan">
 
-          <strong>
-            ${high.length}
-          </strong>
+      ${plan
+        .map(
+          (item, index) =>
+            renderActionCard(
+              item,
+              index
+            )
+        )
+        .join("")}
 
-          <span>
-            Alta prioridad
-          </span>
-
-        </div>
-
-
-        <div class="action-summary-card medium">
-
-          <strong>
-            ${medium.length}
-          </strong>
-
-          <span>
-            Prioridad media
-          </span>
-
-        </div>
-
-
-        <div class="action-summary-card opportunity">
-
-          <strong>
-            ${opportunities.length}
-          </strong>
-
-          <span>
-            Oportunidades
-          </span>
-
-        </div>
-
-
-        <div class="action-summary-card total">
-
-          <strong>
-            ${actions.length}
-          </strong>
-
-          <span>
-            Acciones detectadas
-          </span>
-
-        </div>
-
-      </div>
-
-
-      ${
-        high.length
-          ? `
-
-            <div class="action-group">
-
-              <div class="action-group-header high">
-
-                <div>
-
-                  <span class="action-group-icon">
-                    🔴
-                  </span>
-
-                  <div>
-
-                    <strong>
-                      Alta prioridad
-                    </strong>
-
-                    <p>
-                      Empieza por estas acciones.
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              <div class="action-list">
-
-                ${high
-                  .map(
-                    (action, index) =>
-                      renderActionCard(
-                        action,
-                        index + 1
-                      )
-                  )
-                  .join("")}
-
-              </div>
-
-            </div>
-
-          `
-          : ""
-      }
-
-
-      ${
-        medium.length
-          ? `
-
-            <div class="action-group">
-
-              <div class="action-group-header medium">
-
-                <div>
-
-                  <span class="action-group-icon">
-                    🟡
-                  </span>
-
-                  <div>
-
-                    <strong>
-                      Prioridad media
-                    </strong>
-
-                    <p>
-                      Mejoras que pueden reforzar tu SEO.
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              <div class="action-list">
-
-                ${medium
-                  .map(
-                    (action, index) =>
-                      renderActionCard(
-                        action,
-                        index + 1
-                      )
-                  )
-                  .join("")}
-
-              </div>
-
-            </div>
-
-          `
-          : ""
-      }
-
-
-      ${
-        opportunities.length
-          ? `
-
-            <div class="action-group">
-
-              <div class="action-group-header opportunity">
-
-                <div>
-
-                  <span class="action-group-icon">
-                    🟢
-                  </span>
-
-                  <div>
-
-                    <strong>
-                      Oportunidades
-                    </strong>
-
-                    <p>
-                      Nuevas posibilidades de crecimiento.
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              <div class="action-list">
-
-                ${opportunities
-                  .map(
-                    (action, index) =>
-                      renderActionCard(
-                        action,
-                        index + 1
-                      )
-                  )
-                  .join("")}
-
-              </div>
-
-            </div>
-
-          `
-          : ""
-      }
-
-
-      ${
-        !actions.length
-          ? `
-
-            <div class="action-empty">
-
-              <div>
-                🎉
-              </div>
-
-              <strong>
-                No hemos detectado acciones adicionales.
-              </strong>
-
-              <p>
-                Tu página no presenta suficientes
-                problemas para generar nuevas acciones.
-              </p>
-
-            </div>
-
-          `
-          : ""
-      }
-
-    </section>
-
+    </div>
   `;
 }
 
 
-function buildActionPlan(
-  seo,
-  competitorAnalysis,
-  competitors
-) {
+function buildActionPlan(seo) {
 
-  const actions = [];
+  const plan = [];
+
+  const issues =
+    Array.isArray(seo.issues)
+      ? seo.issues
+      : [];
+
+  const warnings =
+    Array.isArray(seo.warnings)
+      ? seo.warnings
+      : [];
+
+  issues.forEach(
+    (issue, index) => {
+
+      plan.push({
+        priority: "Alta",
+        type: "critical",
+        title: String(issue),
+        description:
+          "Soluciona este problema antes de trabajar en optimizaciones secundarias.",
+        order: index
+      });
+
+    }
+  );
 
 
-  function addAction(
-    priority,
-    title,
-    reason,
-    fix,
-    impact,
-    category = "SEO"
+  warnings.forEach(
+    (warning, index) => {
+
+      plan.push({
+        priority: "Media",
+        type: "warning",
+        title: String(warning),
+        description:
+          "Optimiza este elemento para mejorar el rendimiento SEO.",
+        order: issues.length + index
+      });
+
+    }
+  );
+
+
+  if (
+    seo.imagesWithoutAlt > 0
   ) {
 
-    actions.push({
-      priority,
-      title,
-      reason,
-      fix,
-      impact,
-      category
+    plan.push({
+      priority: "Media",
+      type: "warning",
+      title:
+        "Optimizar imágenes sin atributo ALT",
+      description:
+        `Hay ${seo.imagesWithoutAlt} imágenes sin ALT.`,
+      order: 100
     });
 
   }
 
 
-  /* =====================================================
-     PROBLEMAS CRÍTICOS
-  ===================================================== */
-
-  (seo.issues || []).forEach(
-    issue => {
-
-      const text =
-        String(issue).toLowerCase();
-
-
-      let reason =
-        "Este problema puede afectar negativamente al rendimiento SEO de la página.";
-
-      let fix =
-        "Revisa este elemento directamente en tu web o CMS y vuelve a ejecutar el análisis después de corregirlo.";
-
-      let impact = "Alto";
-
-
-      if (text.includes("title")) {
-
-        reason =
-          "El title ayuda a los buscadores a entender el tema principal de la página.";
-
-        fix =
-          "Crea un title único y descriptivo que incluya la temática principal de la página. Intenta mantenerlo aproximadamente entre 30 y 60 caracteres.";
-
-      }
-
-
-      else if (
-        text.includes("description") ||
-        text.includes("meta description")
-      ) {
-
-        reason =
-          "La meta description ayuda a explicar el contenido de la página en los resultados de búsqueda.";
-
-        fix =
-          "Escribe una descripción única y atractiva que explique claramente qué ofrece la página.";
-
-      }
-
-
-      else if (text.includes("h1")) {
-
-        reason =
-          "El H1 ayuda a establecer el tema principal del contenido.";
-
-        fix =
-          "Utiliza un único H1 principal y haz que describa claramente el contenido de la página.";
-
-      }
-
-
-      else if (text.includes("https")) {
-
-        reason =
-          "HTTPS protege la conexión y forma parte de la configuración técnica básica de una web.";
-
-        fix =
-          "Instala o activa un certificado SSL y fuerza la versión HTTPS de la web.";
-
-      }
-
-
-      else if (text.includes("canonical")) {
-
-        reason =
-          "La canonical ayuda a los buscadores a identificar la versión principal de una URL.";
-
-        fix =
-          "Añade una etiqueta rel=\"canonical\" apuntando a la URL principal de la página.";
-
-      }
-
-
-      else if (text.includes("viewport")) {
-
-        reason =
-          "La configuración viewport es importante para una correcta visualización móvil.";
-
-        fix =
-          "Añade la etiqueta meta viewport estándar dentro del <head>.";
-
-      }
-
-
-      else if (text.includes("robots")) {
-
-        reason =
-          "La configuración robots puede afectar a cómo los buscadores rastrean la página.";
-
-        fix =
-          "Comprueba que robots.txt exista, sea accesible y no bloquee accidentalmente páginas importantes.";
-
-      }
-
-
-      else if (text.includes("schema")) {
-
-        reason =
-          "Los datos estructurados ayudan a los buscadores a interpretar determinados tipos de contenido.";
-
-        fix =
-          "Añade Schema.org en formato JSON-LD cuando exista un tipo de marcado relevante.";
-
-        impact = "Medio";
-
-      }
-
-
-      else if (text.includes("alt")) {
-
-        reason =
-          "El texto ALT ayuda a describir las imágenes.";
-
-        fix =
-          "Añade atributos ALT descriptivos a las imágenes relevantes.";
-
-      }
-
-
-      addAction(
-        "high",
-        issue,
-        reason,
-        fix,
-        impact,
-        "SEO"
-      );
-
-    }
-  );
-
-
-  /* =====================================================
-     TITLE
-  ===================================================== */
-
-  const titleLength =
-    Number(seo.titleLength || 0);
-
-
-  if (!seo.title) {
-
-    addAction(
-      "high",
-      "Crear el title SEO",
-      "La página no tiene un título HTML identificable.",
-      "Añade un <title> único, descriptivo y centrado en la intención principal de la página.",
-      "Alto",
-      "On-Page"
-    );
-
-  }
-
-  else if (titleLength < 30) {
-
-    addAction(
-      "medium",
-      "Ampliar el title",
-      `El title tiene aproximadamente ${titleLength} caracteres y puede resultar demasiado corto.`,
-      "Amplía el título para describir mejor el contenido y añade la temática principal de forma natural.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-  else if (titleLength > 60) {
-
-    addAction(
-      "medium",
-      "Reducir el title",
-      `El title tiene aproximadamente ${titleLength} caracteres y puede aparecer truncado.`,
-      "Reduce el título y conserva las palabras que mejor representan la intención de búsqueda.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-
-  /* =====================================================
-     DESCRIPTION
-  ===================================================== */
-
-  const descriptionLength =
-    Number(seo.descriptionLength || 0);
-
-
-  if (!seo.description) {
-
-    addAction(
-      "high",
-      "Crear la meta description",
-      "La página no tiene una meta description identificable.",
-      "Añade una descripción única que explique el contenido y anime al usuario a entrar.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-  else if (descriptionLength < 70) {
-
-    addAction(
-      "medium",
-      "Mejorar la meta description",
-      `La descripción tiene aproximadamente ${descriptionLength} caracteres.`,
-      "Hazla más descriptiva y orientada a la intención de búsqueda de la página.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-  else if (descriptionLength > 160) {
-
-    addAction(
-      "medium",
-      "Acortar la meta description",
-      `La descripción tiene aproximadamente ${descriptionLength} caracteres.`,
-      "Reduce el texto y coloca la información más importante al principio.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-
-  /* =====================================================
-     H1
-  ===================================================== */
-
-  const h1Count =
-    Number(seo.h1Count || 0);
-
-
-  if (h1Count === 0) {
-
-    addAction(
-      "high",
-      "Añadir un H1",
-      "La página no contiene una etiqueta H1.",
-      "Añade un único H1 que describa claramente el tema principal.",
-      "Alto",
-      "On-Page"
-    );
-
-  }
-
-  else if (h1Count > 1) {
-
-    addAction(
-      "medium",
-      "Revisar los H1",
-      `Se han detectado ${h1Count} etiquetas H1.`,
-      "Revisa la estructura y conserva un H1 principal. Utiliza H2 y H3 para organizar las secciones.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-
-  /* =====================================================
-     CONTENIDO
-  ===================================================== */
-
-  const wordCount =
-    Number(seo.wordCount || 0);
-
-
-  if (wordCount < 300) {
-
-    addAction(
-      "medium",
-      "Ampliar el contenido",
-      `La página contiene aproximadamente ${wordCount} palabras.`,
-      "Amplía el contenido con información realmente útil para la intención de búsqueda. No añadas texto únicamente para aumentar el número de palabras.",
-      "Medio",
-      "Content"
-    );
-
-  }
-
-
-  /* =====================================================
-     IMÁGENES
-  ===================================================== */
-
-  const imagesWithoutAlt =
-    Number(seo.imagesWithoutAlt || 0);
-
-
-  if (imagesWithoutAlt > 0) {
-
-    addAction(
-      "medium",
-      `Optimizar ${imagesWithoutAlt} imágenes sin ALT`,
-      "Hay imágenes que no tienen atributo ALT.",
-      "Añade textos ALT descriptivos a las imágenes relevantes.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-
-  /* =====================================================
-     ENLACES INTERNOS
-  ===================================================== */
-
-  const internalLinks =
-    Number(seo.internalLinks || 0);
-
-
-  if (internalLinks < 3) {
-
-    addAction(
-      "medium",
-      "Aumentar los enlaces internos",
-      `La página tiene aproximadamente ${internalLinks} enlaces internos.`,
-      "Añade enlaces hacia páginas relacionadas e importantes de tu web utilizando textos de enlace descriptivos.",
-      "Medio",
-      "On-Page"
-    );
-
-  }
-
-
-  /* =====================================================
-     KEYWORD RECOMMENDATIONS
-  ===================================================== */
-
-  (seo.keywordRecommendations || [])
-    .slice(0, 5)
-    .forEach(
-      recommendation => {
-
-        let keyword = "";
-
-
-        if (
-          typeof recommendation ===
-          "string"
-        ) {
-
-          keyword =
-            recommendation;
-
-        }
-
-        else if (
-          recommendation &&
-          typeof recommendation ===
-          "object"
-        ) {
-
-          keyword =
-            recommendation.keyword ||
-            recommendation.term ||
-            recommendation.text ||
-            "";
-
-        }
-
-
-        if (!keyword) {
-          return;
-        }
-
-
-        addAction(
-          "medium",
-          `Trabajar la keyword "${keyword}"`,
-          "El análisis de contenido ha detectado una oportunidad relacionada con esta temática.",
-          `Integra "${keyword}" de forma natural en títulos, encabezados, contenido y enlaces internos cuando sea relevante.`,
-          "Medio",
-          "Keywords"
-        );
-
-      }
-    );
-
-
-  /* =====================================================
-     COMPETITOR GAP
-  ===================================================== */
-
   if (
-    competitorAnalysis &&
-    competitorAnalysis.enabled &&
-    Array.isArray(
-      competitorAnalysis.opportunities
-    )
+    seo.internalLinks === 0
   ) {
 
-    competitorAnalysis.opportunities
-      .slice(0, 10)
-      .forEach(
-        opportunity => {
-
-          if (!opportunity.keyword) {
-            return;
-          }
-
-
-          const competitorCount =
-            opportunity.competitorCount || 1;
-
-
-          addAction(
-            "opportunity",
-            `Atacar la keyword "${opportunity.keyword}"`,
-            `${competitorCount} competidor${competitorCount > 1 ? "es" : ""} analizado${competitorCount > 1 ? "s" : ""} aparece${competitorCount > 1 ? "n" : ""} para esta temática y tu web no la está trabajando actualmente.`,
-            `Crea o mejora una página relevante para "${opportunity.keyword}". Comprueba primero la intención de búsqueda.`,
-            "Oportunidad",
-            "Competitor Gap"
-          );
-
-        }
-      );
+    plan.push({
+      priority: "Media",
+      type: "warning",
+      title:
+        "Añadir enlaces internos",
+      description:
+        "La página no contiene enlaces internos detectados.",
+      order: 101
+    });
 
   }
 
 
-  /* =====================================================
-     TECHNICAL
-  ===================================================== */
+  if (
+    seo.h1Count === 0
+  ) {
 
-  const technicalChecks = [
+    plan.push({
+      priority: "Alta",
+      type: "critical",
+      title:
+        "Añadir un H1",
+      description:
+        "La página necesita un encabezado principal.",
+      order: 102
+    });
 
-    {
-      key: "hasCanonical",
-      title: "Implementar canonical",
-      reason: "No se ha detectado una canonical.",
-      fix: "Añade una canonical que apunte a la URL principal de la página.",
-      impact: "Medio"
-    },
-
-    {
-      key: "hasSchema",
-      title: "Añadir datos estructurados",
-      reason: "No se ha detectado Schema.org.",
-      fix: "Implementa JSON-LD cuando exista un marcado apropiado para el contenido.",
-      impact: "Medio"
-    },
-
-    {
-      key: "hasOpenGraph",
-      title: "Configurar Open Graph",
-      reason: "La página no parece tener Open Graph correctamente configurado.",
-      fix: "Añade og:title, og:description y og:image.",
-      impact: "Bajo"
-    },
-
-    {
-      key: "hasTwitterCard",
-      title: "Configurar Twitter Card",
-      reason: "No se ha detectado una configuración de Twitter Card.",
-      fix: "Añade las meta etiquetas necesarias para controlar la apariencia al compartir contenido.",
-      impact: "Bajo"
-    }
-
-  ];
+  }
 
 
-  technicalChecks.forEach(
-    check => {
-
-      if (seo[check.key] === false) {
-
-        addAction(
-          check.impact === "Bajo"
-            ? "opportunity"
-            : "medium",
-          check.title,
-          check.reason,
-          check.fix,
-          check.impact,
-          "Technical SEO"
-        );
-
-      }
-
-    }
-  );
-
-
-  /* =====================================================
-     ORDEN
-  ===================================================== */
-
-  const priorityOrder = {
-    high: 1,
-    medium: 2,
-    opportunity: 3
-  };
-
-
-  actions.sort(
-    (a, b) =>
-      priorityOrder[a.priority] -
-      priorityOrder[b.priority]
-  );
-
-
-  /* =====================================================
-     DUPLICADOS
-  ===================================================== */
-
-  const unique = [];
-  const seen = new Set();
-
-
-  actions.forEach(
-    action => {
-
-      const key =
-        String(action.title)
-          .toLowerCase()
-          .trim();
-
-
-      if (!seen.has(key)) {
-
-        seen.add(key);
-        unique.push(action);
-
-      }
-
-    }
-  );
-
-
-  return unique.slice(0, 30);
+  return plan
+    .sort(
+      (a, b) =>
+        a.order - b.order
+    )
+    .slice(0, 10);
 }
 
 
-/* =========================================================
-   ACTION CARD
-========================================================= */
-
 function renderActionCard(
-  action,
-  number
+  item,
+  index
 ) {
-
-  const priorityLabel =
-    action.priority === "high"
-      ? "ALTA"
-      : action.priority === "medium"
-      ? "MEDIA"
-      : "OPORTUNIDAD";
-
 
   return `
 
     <div class="action-card">
 
       <div class="action-number">
-        ${number}
+        ${index + 1}
       </div>
 
 
-      <div class="action-main">
+      <div class="action-content">
 
-        <div class="action-card-top">
+        <div class="action-header">
 
-          <div>
+          <strong>
+            ${escapeHtml(item.title)}
+          </strong>
 
-            <span class="action-category">
-              ${escapeHtml(action.category)}
-            </span>
-
-            <h3>
-              ${escapeHtml(action.title)}
-            </h3>
-
-          </div>
-
-
-          <span
-            class="action-priority ${action.priority}"
-          >
-            ${priorityLabel}
+          <span class="action-priority ${item.type}">
+            ${escapeHtml(item.priority)}
           </span>
 
         </div>
 
 
-        <div class="action-detail">
-
-          <div class="action-detail-block">
-
-            <span>
-              POR QUÉ IMPORTA
-            </span>
-
-            <p>
-              ${escapeHtml(action.reason)}
-            </p>
-
-          </div>
-
-
-          <div class="action-detail-block">
-
-            <span>
-              CÓMO SOLUCIONARLO
-            </span>
-
-            <p>
-              ${escapeHtml(action.fix)}
-            </p>
-
-          </div>
-
-
-          <div class="action-impact">
-
-            <span>
-              IMPACTO POTENCIAL
-            </span>
-
-            <strong
-              class="${action.priority}"
-            >
-              ${escapeHtml(action.impact)}
-            </strong>
-
-          </div>
-
-        </div>
+        <p>
+          ${escapeHtml(item.description)}
+        </p>
 
       </div>
 
@@ -1646,161 +848,990 @@ function renderActionCard(
 
 function renderKeywordIntelligence(seo) {
 
-  const keywords =
-    Array.isArray(seo.keywords)
-      ? seo.keywords
-      : [];
-
-
-  if (!keywords.length) {
-    return "";
-  }
-
-
-  /*
-    IMPORTANTE:
-    primaryKeyword puede ser:
-    - string
-    - objeto
-    - null
-    - undefined
-
-    Lo normalizamos aquí para evitar
-    errores con .toLowerCase()
-  */
-
   const primary =
     normalizeKeyword(
       seo.primaryKeyword
     );
 
+  const keywords =
+    Array.isArray(seo.keywords)
+      ? seo.keywords
+      : Array.isArray(
+          seo.keywordIntelligence
+        )
+      ? seo.keywordIntelligence
+      : [];
+
+  if (
+    !primary &&
+    !keywords.length
+  ) {
+    return "";
+  }
 
   return `
 
-    <section class="keyword-section">
+    <div class="section-title">
 
-      <div class="section-title">
+      <div>
 
-        <div>
+        <span>
+          KEYWORD INTELLIGENCE
+        </span>
 
-          <span>
-            KEYWORD INTELLIGENCE
-          </span>
+        <h2>
+          Keywords detectadas
+        </h2>
 
-          <h2>
-            Inteligencia de keywords
-          </h2>
+      </div>
 
-        </div>
+    </div>
+
+
+    <div class="keyword-intelligence-card">
+
+      <div class="primary-keyword">
+
+        <span>
+          KEYWORD PRINCIPAL
+        </span>
+
+        <strong>
+          ${escapeHtml(
+            primary || "No detectada"
+          )}
+        </strong>
 
       </div>
 
 
-      <div class="keyword-dashboard">
+      ${
+        keywords.length
+          ? `
+            <div class="keyword-list">
 
-        <div class="keyword-primary">
+              ${keywords
+                .slice(0, 20)
+                .map(
+                  keyword => {
 
-          <span>
-            KEYWORD PRINCIPAL
-          </span>
+                    const text =
+                      normalizeKeyword(
+                        keyword
+                      );
 
-          <strong>
-            ${escapeHtml(
-              primary || "No detectada"
-            )}
-          </strong>
+                    const count =
+                      getKeywordCount(
+                        keyword
+                      );
 
-        </div>
+                    if (!text) {
+                      return "";
+                    }
+
+                    return `
+
+                      <div class="keyword-row">
+
+                        <span>
+                          ${escapeHtml(text)}
+                        </span>
+
+                        <span>
+                          ${getKeywordTypeLabel(
+                            text,
+                            primary
+                          )}
+                        </span>
+
+                        <strong>
+                          ${count || "-"}
+                        </strong>
+
+                      </div>
+
+                    `;
+                  }
+                )
+                .join("")}
+
+            </div>
+          `
+          : ""
+      }
+
+    </div>
+
+  `;
+}
 
 
-        <div class="keyword-count">
+/* =========================================================
+   KEYWORD RECOMMENDATIONS
+========================================================= */
 
-          <strong>
-            ${keywords.length}
-          </strong>
+function renderKeywordRecommendations(seo) {
 
-          <span>
-            keywords detectadas
-          </span>
+  const recommendations =
+    Array.isArray(
+      seo.keywordRecommendations
+    )
+      ? seo.keywordRecommendations
+      : [];
 
-        </div>
+  if (!recommendations.length) {
+    return "";
+  }
+
+  return `
+
+    <div class="section-title">
+
+      <div>
+
+        <span>
+          KEYWORD OPPORTUNITIES
+        </span>
+
+        <h2>
+          Recomendaciones de keywords
+        </h2>
+
+      </div>
+
+    </div>
+
+
+    <div class="recommendations-card">
+
+      ${recommendations
+        .slice(0, 15)
+        .map(
+          (item, index) => {
+
+            const keyword =
+              normalizeKeyword(
+                item
+              );
+
+            if (!keyword) {
+              return "";
+            }
+
+            return `
+
+              <div class="recommendation-row">
+
+                <span>
+                  ${index + 1}
+                </span>
+
+                <strong>
+                  ${escapeHtml(keyword)}
+                </strong>
+
+              </div>
+
+            `;
+          }
+        )
+        .join("")}
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   COMPETIDORES
+========================================================= */
+
+function renderCompetitorCTA() {
+
+  return `
+
+    <div class="competitor-cta">
+
+      <div>
+
+        <span>
+          COMPETITOR INTELLIGENCE
+        </span>
+
+        <h2>
+          Compara tu web con tus competidores
+        </h2>
+
+        <p>
+          Descubre diferencias SEO y oportunidades
+          frente a otras páginas.
+        </p>
 
       </div>
 
 
-      <div class="keyword-table-wrapper">
+      <button
+        onclick="openCompetitorForm()"
+        class="competitor-button"
+      >
+        Comparar competidores →
+      </button>
 
-        <table class="keyword-table">
+    </div>
+
+  `;
+}
+
+
+function openCompetitorForm() {
+
+  const existing =
+    document.getElementById(
+      "competitorForm"
+    );
+
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const container =
+    document.createElement(
+      "div"
+    );
+
+  container.id =
+    "competitorForm";
+
+  container.className =
+    "competitor-form-wrapper";
+
+  container.innerHTML = `
+
+    <div class="competitor-form-card">
+
+      <h3>
+        Analizar competidores
+      </h3>
+
+      <p>
+        Puedes introducir hasta 3 competidores.
+      </p>
+
+
+      <input
+        id="competitor1"
+        class="competitor-input"
+        placeholder="https://competidor1.com"
+      />
+
+
+      <input
+        id="competitor2"
+        class="competitor-input"
+        placeholder="https://competidor2.com"
+      />
+
+
+      <input
+        id="competitor3"
+        class="competitor-input"
+        placeholder="https://competidor3.com"
+      />
+
+
+      <div class="competitor-form-actions">
+
+        <button
+          onclick="runCompetitorAnalysis()"
+          class="competitor-button"
+        >
+          Analizar competidores
+        </button>
+
+      </div>
+
+
+      <div
+        id="competitorMessage"
+        class="competitor-message"
+      ></div>
+
+    </div>
+
+  `;
+
+  message.appendChild(
+    container
+  );
+
+  container.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+}
+
+
+async function runCompetitorAnalysis() {
+
+  if (!currentMainUrl) {
+    return;
+  }
+
+  const inputs = [
+    document.getElementById(
+      "competitor1"
+    ),
+    document.getElementById(
+      "competitor2"
+    ),
+    document.getElementById(
+      "competitor3"
+    )
+  ];
+
+  const competitors =
+    inputs
+      .map(
+        input =>
+          input
+            ? input.value.trim()
+            : ""
+      )
+      .filter(Boolean);
+
+
+  if (!competitors.length) {
+
+    alert(
+      "Introduce al menos un competidor."
+    );
+
+    return;
+  }
+
+
+  const competitorMessage =
+    document.getElementById(
+      "competitorMessage"
+    );
+
+  if (competitorMessage) {
+
+    competitorMessage.innerHTML = `
+      <div class="seo-loading">
+        <div class="loading-spinner"></div>
+
+        <p>
+          Analizando competidores...
+        </p>
+      </div>
+    `;
+
+  }
+
+
+  try {
+
+    const params =
+      new URLSearchParams();
+
+    params.set(
+      "url",
+      currentMainUrl
+    );
+
+    params.set(
+      "competitors",
+      competitors.join(",")
+    );
+
+
+    const response =
+      await fetch(
+        `${WORKER_URL}?${params.toString()}`
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.error ||
+        "No se pudieron analizar los competidores."
+      );
+
+    }
+
+
+    currentData = {
+      ...currentData,
+      competitorAnalysis:
+        data.competitorAnalysis ||
+        data.competitors ||
+        []
+    };
+
+
+    renderCompetitorAnalysis(
+      currentData.competitorAnalysis
+    );
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    if (competitorMessage) {
+
+      competitorMessage.innerHTML = `
+
+        <div class="seo-error">
+
+          ❌ ${escapeHtml(
+            error.message
+          )}
+
+        </div>
+
+      `;
+
+    }
+
+  }
+}
+
+
+function renderCompetitorAnalysis(
+  competitors
+) {
+
+  if (
+    !Array.isArray(
+      competitors
+    )
+  ) {
+    return;
+  }
+
+
+  const old =
+    document.getElementById(
+      "competitorResults"
+    );
+
+  if (old) {
+    old.remove();
+  }
+
+
+  const wrapper =
+    document.createElement(
+      "div"
+    );
+
+  wrapper.id =
+    "competitorResults";
+
+  wrapper.className =
+    "competitor-results";
+
+
+  wrapper.innerHTML = `
+
+    <div class="section-title">
+
+      <div>
+
+        <span>
+          COMPETITOR ANALYSIS
+        </span>
+
+        <h2>
+          Comparación SEO
+        </h2>
+
+      </div>
+
+    </div>
+
+
+    <div class="competitor-results-grid">
+
+      ${competitors
+        .map(
+          (competitor, index) => {
+
+            const name =
+              competitor.name ||
+              competitor.domain ||
+              competitor.url ||
+              `Competidor ${index + 1}`;
+
+            const score =
+              competitor.score ??
+              competitor.seoScore ??
+              "-";
+
+            return `
+
+              <div class="competitor-result-card">
+
+                <span>
+                  COMPETIDOR ${index + 1}
+                </span>
+
+                <h3>
+                  ${escapeHtml(
+                    String(name)
+                  )}
+                </h3>
+
+                <strong>
+                  ${escapeHtml(
+                    String(score)
+                  )}
+                  /100
+                </strong>
+
+              </div>
+
+            `;
+          }
+        )
+        .join("")}
+
+    </div>
+
+  `;
+
+
+  message.appendChild(
+    wrapper
+  );
+
+  wrapper.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+}
+
+
+/* =========================================================
+   SEO REPORTS 1.0
+========================================================= */
+
+function generateSEOReport() {
+
+  if (!currentData) {
+
+    alert(
+      "Primero debes analizar una web."
+    );
+
+    return;
+  }
+
+
+  const data =
+    currentData;
+
+  const seo =
+    data.seo || {};
+
+  const categories =
+    seo.categories || {};
+
+
+  const reportWindow =
+    window.open(
+      "",
+      "_blank",
+      "width=1100,height=900"
+    );
+
+
+  if (!reportWindow) {
+
+    alert(
+      "El navegador ha bloqueado la ventana del informe. Permite ventanas emergentes para RankPilot."
+    );
+
+    return;
+  }
+
+
+  const hostname =
+    getHostname(
+      data.finalUrl ||
+      currentMainUrl ||
+      ""
+    );
+
+
+  const generatedAt =
+    new Date().toLocaleString(
+      "es-ES",
+      {
+        dateStyle: "long",
+        timeStyle: "short"
+      }
+    );
+
+
+  const score =
+    Number(
+      seo.score || 0
+    );
+
+
+  const scoreLabel =
+    getLabel(score);
+
+
+  const issues =
+    Array.isArray(seo.issues)
+      ? seo.issues
+      : [];
+
+
+  const warnings =
+    Array.isArray(seo.warnings)
+      ? seo.warnings
+      : [];
+
+
+  const passed =
+    Array.isArray(seo.passed)
+      ? seo.passed
+      : [];
+
+
+  const primaryKeyword =
+    normalizeKeyword(
+      seo.primaryKeyword
+    ) ||
+    "No detectada";
+
+
+  const keywords =
+    Array.isArray(seo.keywords)
+      ? seo.keywords
+      : Array.isArray(
+          seo.keywordIntelligence
+        )
+      ? seo.keywordIntelligence
+      : [];
+
+
+  const recommendations =
+    Array.isArray(
+      seo.keywordRecommendations
+    )
+      ? seo.keywordRecommendations
+      : [];
+
+
+  const competitors =
+    currentData.competitorAnalysis ||
+    seo.competitors ||
+    [];
+
+
+  const actionPlan =
+    buildActionPlan(
+      seo
+    );
+
+
+  const categoriesHTML = [
+
+    reportCategory(
+      "Technical SEO",
+      categories.technical
+    ),
+
+    reportCategory(
+      "On-Page SEO",
+      categories.onPage
+    ),
+
+    reportCategory(
+      "Content",
+      categories.content
+    ),
+
+    reportCategory(
+      "Indexability",
+      categories.indexability
+    )
+
+  ].join("");
+
+
+  const issuesHTML =
+    issues.length
+      ? issues
+          .map(
+            (issue, index) => `
+              <div class="report-problem critical">
+
+                <strong>
+                  ${index + 1}.
+                </strong>
+
+                <span>
+                  ${escapeHtml(
+                    String(issue)
+                  )}
+                </span>
+
+              </div>
+            `
+          )
+          .join("")
+      : `
+        <div class="empty">
+          No se han detectado problemas críticos.
+        </div>
+      `;
+
+
+  const warningsHTML =
+    warnings.length
+      ? warnings
+          .map(
+            (warning, index) => `
+              <div class="report-problem warning">
+
+                <strong>
+                  ${index + 1}.
+                </strong>
+
+                <span>
+                  ${escapeHtml(
+                    String(warning)
+                  )}
+                </span>
+
+              </div>
+            `
+          )
+          .join("")
+      : "";
+
+
+  const actionPlanHTML =
+    actionPlan.length
+      ? actionPlan
+          .map(
+            (item, index) => `
+
+              <div class="report-action">
+
+                <div class="report-action-number">
+                  ${index + 1}
+                </div>
+
+                <div>
+
+                  <strong>
+                    ${escapeHtml(
+                      item.title
+                    )}
+                  </strong>
+
+                  <span class="report-priority">
+                    ${escapeHtml(
+                      item.priority
+                    )}
+                  </span>
+
+                  <p>
+                    ${escapeHtml(
+                      item.description
+                    )}
+                  </p>
+
+                </div>
+
+              </div>
+
+            `
+          )
+          .join("")
+      : `
+        <div class="empty">
+          No hay acciones adicionales registradas.
+        </div>
+      `;
+
+
+  const keywordHTML =
+    keywords.length
+      ? keywords
+          .slice(0, 25)
+          .map(
+            keyword => {
+
+              const text =
+                normalizeKeyword(
+                  keyword
+                );
+
+              if (!text) {
+                return "";
+              }
+
+              return `
+
+                <tr>
+
+                  <td>
+                    ${escapeHtml(text)}
+                  </td>
+
+                  <td>
+                    ${getKeywordCount(
+                      keyword
+                    ) || "-"}
+                  </td>
+
+                  <td>
+                    ${getKeywordTypeLabel(
+                      text,
+                      primaryKeyword
+                    )}
+                  </td>
+
+                </tr>
+
+              `;
+            }
+          )
+          .join("")
+      : `
+        <tr>
+          <td colspan="3">
+            No hay keywords detectadas.
+          </td>
+        </tr>
+      `;
+
+
+  const recommendationHTML =
+    recommendations.length
+      ? recommendations
+          .slice(0, 20)
+          .map(
+            (item, index) => {
+
+              const keyword =
+                normalizeKeyword(
+                  item
+                );
+
+              if (!keyword) {
+                return "";
+              }
+
+              return `
+
+                <div class="recommendation">
+
+                  <strong>
+                    ${index + 1}
+                  </strong>
+
+                  <span>
+                    ${escapeHtml(
+                      keyword
+                    )}
+                  </span>
+
+                </div>
+
+              `;
+            }
+          )
+          .join("")
+      : `
+        <div class="empty">
+          No hay recomendaciones de keywords.
+        </div>
+      `;
+
+
+  const competitorHTML =
+    Array.isArray(
+      competitors
+    ) &&
+    competitors.length
+      ? `
+
+        <table>
 
           <thead>
 
             <tr>
 
               <th>
-                Keyword
+                Competidor
               </th>
 
               <th>
-                Apariciones
-              </th>
-
-              <th>
-                Relevancia
+                SEO Score
               </th>
 
             </tr>
 
           </thead>
 
-
           <tbody>
 
-            ${keywords
-              .slice(0, 20)
+            ${competitors
               .map(
-                item => {
+                competitor => {
 
-                  const keyword =
-                    normalizeKeyword(item);
+                  const name =
+                    competitor.name ||
+                    competitor.domain ||
+                    competitor.url ||
+                    "Competidor";
 
-
-                  const count =
-                    getKeywordCount(item);
-
+                  const competitorScore =
+                    competitor.score ??
+                    competitor.seoScore ??
+                    "-";
 
                   return `
 
                     <tr>
 
                       <td>
-
-                        <strong>
-                          ${escapeHtml(keyword)}
-                        </strong>
-
+                        ${escapeHtml(
+                          String(name)
+                        )}
                       </td>
 
                       <td>
-                        ${count}
-                      </td>
-
-                      <td>
-
-                        <span class="keyword-badge">
-
-                          ${getKeywordTypeLabel(
-                            keyword,
-                            primary
-                          )}
-
-                        </span>
-
+                        ${escapeHtml(
+                          String(
+                            competitorScore
+                          )
+                        )}
                       </td>
 
                     </tr>
 
                   `;
-
                 }
               )
               .join("")}
@@ -1809,22 +1840,1090 @@ function renderKeywordIntelligence(seo) {
 
         </table>
 
+      `
+      : `
+        <div class="empty">
+          No se ha realizado una comparación de competidores.
+        </div>
+      `;
+
+
+  reportWindow.document.write(`
+
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+/>
+
+<title>
+  RankPilot SEO Report
+</title>
+
+
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+
+  margin: 0;
+
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  background: #f4f6f8;
+
+  color: #172033;
+
+  line-height: 1.5;
+}
+
+
+.report {
+
+  max-width: 1000px;
+
+  margin: 40px auto;
+
+  background: white;
+
+  padding: 50px;
+}
+
+
+.header {
+
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    flex-start;
+
+  padding-bottom: 30px;
+
+  border-bottom:
+    1px solid #e5e7eb;
+}
+
+
+.brand {
+
+  font-size: 30px;
+
+  font-weight: 800;
+}
+
+
+.brand span {
+  color: #6366f1;
+}
+
+
+.header-info {
+
+  text-align: right;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.hero {
+
+  display: grid;
+
+  grid-template-columns:
+    220px 1fr;
+
+  gap: 40px;
+
+  align-items: center;
+
+  margin: 45px 0;
+}
+
+
+.score {
+
+  width: 190px;
+
+  height: 190px;
+
+  border-radius: 50%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: 12px solid #d1d5db;
+
+}
+
+
+.score.good {
+  border-color: #22c55e;
+}
+
+
+.score.warning {
+  border-color: #f59e0b;
+}
+
+
+.score.bad {
+  border-color: #ef4444;
+}
+
+
+.score-inner {
+  text-align: center;
+}
+
+
+.score-number {
+
+  display: block;
+
+  font-size: 54px;
+
+  font-weight: 800;
+
+  line-height: 1;
+}
+
+
+.score-max {
+
+  color: #6b7280;
+
+  font-size: 14px;
+}
+
+
+.hero h1 {
+
+  font-size: 32px;
+
+  margin:
+    0 0 8px;
+}
+
+
+.hero p {
+
+  color: #6b7280;
+}
+
+
+.status {
+
+  display: inline-block;
+
+  padding:
+    7px 14px;
+
+  border-radius: 999px;
+
+  background: #f3f4f6;
+
+  font-weight: 700;
+}
+
+
+.section {
+
+  margin-top: 45px;
+
+  page-break-inside:
+    avoid;
+}
+
+
+.section h2 {
+
+  font-size: 22px;
+
+  margin-bottom: 20px;
+}
+
+
+.categories {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 16px;
+}
+
+
+.category {
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  padding: 18px;
+}
+
+
+.category-header {
+
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  margin-bottom: 12px;
+}
+
+
+.bar {
+
+  height: 8px;
+
+  background: #e5e7eb;
+
+  border-radius: 999px;
+
+  overflow: hidden;
+}
+
+
+.bar-fill {
+
+  height: 100%;
+}
+
+
+.bar-fill.good {
+  background: #22c55e;
+}
+
+
+.bar-fill.warning {
+  background: #f59e0b;
+}
+
+
+.bar-fill.bad {
+  background: #ef4444;
+}
+
+
+.good {
+  color: #16a34a;
+}
+
+
+.warning {
+  color: #d97706;
+}
+
+
+.bad {
+  color: #dc2626;
+}
+
+
+.report-problem {
+
+  display: flex;
+
+  gap: 12px;
+
+  padding: 15px;
+
+  border-bottom:
+    1px solid #e5e7eb;
+}
+
+
+.report-problem:last-child {
+  border-bottom: 0;
+}
+
+
+.report-action {
+
+  display: flex;
+
+  gap: 15px;
+
+  padding: 18px 0;
+
+  border-bottom:
+    1px solid #e5e7eb;
+}
+
+
+.report-action-number {
+
+  width: 34px;
+
+  height: 34px;
+
+  border-radius: 50%;
+
+  background: #eef2ff;
+
+  color: #4f46e5;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-weight: 800;
+
+  flex-shrink: 0;
+}
+
+
+.report-priority {
+
+  margin-left: 10px;
+
+  font-size: 12px;
+
+  color: #6366f1;
+
+  font-weight: 700;
+}
+
+
+.report-action p {
+
+  margin:
+    5px 0 0;
+
+  color: #6b7280;
+}
+
+
+.metrics {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 14px;
+}
+
+
+.metric {
+
+  padding: 18px;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 12px;
+}
+
+
+.metric span {
+
+  display: block;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.metric strong {
+
+  display: block;
+
+  font-size: 24px;
+
+  margin-top: 5px;
+}
+
+
+table {
+
+  width: 100%;
+
+  border-collapse:
+    collapse;
+}
+
+
+th,
+td {
+
+  padding: 13px;
+
+  text-align: left;
+
+  border-bottom:
+    1px solid #e5e7eb;
+}
+
+
+th {
+
+  background: #f9fafb;
+
+  font-size: 13px;
+}
+
+
+.recommendation {
+
+  display: flex;
+
+  gap: 14px;
+
+  padding: 13px;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  margin-bottom: 8px;
+}
+
+
+.empty {
+
+  padding: 25px;
+
+  text-align: center;
+
+  background: #f9fafb;
+
+  border-radius: 10px;
+
+  color: #6b7280;
+}
+
+
+.print-button {
+
+  position: fixed;
+
+  right: 25px;
+
+  bottom: 25px;
+
+  border: 0;
+
+  border-radius: 10px;
+
+  padding:
+    13px 20px;
+
+  background: #111827;
+
+  color: white;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+@media(max-width: 700px) {
+
+  .report {
+
+    margin: 0;
+
+    padding: 25px;
+
+  }
+
+  .header {
+
+    flex-direction:
+      column;
+
+  }
+
+  .header-info {
+
+    text-align: left;
+
+  }
+
+  .hero {
+
+    grid-template-columns:
+      1fr;
+
+  }
+
+  .categories,
+  .metrics {
+
+    grid-template-columns:
+      1fr;
+
+  }
+
+}
+
+
+@media print {
+
+  body {
+    background: white;
+  }
+
+  .report {
+
+    margin: 0;
+
+    max-width: none;
+
+    padding: 20px;
+
+  }
+
+  .print-button {
+    display: none;
+  }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="report">
+
+
+  <div class="header">
+
+    <div class="brand">
+      Rank<span>Pilot</span>
+    </div>
+
+
+    <div class="header-info">
+
+      <strong>
+        SEO AUDIT REPORT
+      </strong>
+
+      <br>
+
+      ${escapeHtml(
+        generatedAt
+      )}
+
+    </div>
+
+  </div>
+
+
+  <div class="hero">
+
+
+    <div class="score ${getStatus(score)}">
+
+      <div class="score-inner">
+
+        <span class="score-number">
+          ${score}
+        </span>
+
+        <span class="score-max">
+          /100
+        </span>
+
       </div>
 
-    </section>
+    </div>
+
+
+    <div>
+
+      <h1>
+        Informe SEO de
+        ${escapeHtml(hostname)}
+      </h1>
+
+      <p>
+        ${escapeHtml(
+          data.finalUrl ||
+          currentMainUrl ||
+          ""
+        )}
+      </p>
+
+      <span class="status">
+        ${escapeHtml(scoreLabel)}
+      </span>
+
+    </div>
+
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Resumen
+    </h2>
+
+
+    <div class="metrics">
+
+      ${reportMetric(
+        "Problemas",
+        issues.length
+      )}
+
+      ${reportMetric(
+        "Recomendaciones",
+        warnings.length
+      )}
+
+      ${reportMetric(
+        "Correctos",
+        passed.length
+      )}
+
+      ${reportMetric(
+        "Keyword principal",
+        primaryKeyword
+      )}
+
+    </div>
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Desglose SEO
+    </h2>
+
+
+    <div class="categories">
+
+      ${categoriesHTML}
+
+    </div>
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Problemas detectados
+    </h2>
+
+    ${issuesHTML}
+
+    ${warningsHTML}
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Plan de acción SEO
+    </h2>
+
+    ${actionPlanHTML}
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Keyword Intelligence
+    </h2>
+
+
+    <p>
+
+      Keyword principal:
+
+      <strong>
+        ${escapeHtml(
+          primaryKeyword
+        )}
+      </strong>
+
+    </p>
+
+
+    <table>
+
+      <thead>
+
+        <tr>
+
+          <th>
+            Keyword
+          </th>
+
+          <th>
+            Frecuencia
+          </th>
+
+          <th>
+            Tipo
+          </th>
+
+        </tr>
+
+      </thead>
+
+
+      <tbody>
+
+        ${keywordHTML}
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Recomendaciones de keywords
+    </h2>
+
+    ${recommendationHTML}
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Elementos On-Page
+    </h2>
+
+
+    <div class="metrics">
+
+      ${reportMetric(
+        "Title",
+        seo.title ||
+        "No encontrado"
+      )}
+
+      ${reportMetric(
+        "Meta Description",
+        seo.description ||
+        "No encontrada"
+      )}
+
+      ${reportMetric(
+        "H1",
+        seo.h1Count ?? 0
+      )}
+
+      ${reportMetric(
+        "H2",
+        seo.h2Count ?? 0
+      )}
+
+      ${reportMetric(
+        "H3",
+        seo.h3Count ?? 0
+      )}
+
+      ${reportMetric(
+        "Contenido",
+        seo.wordCount ?? 0
+      )}
+
+      ${reportMetric(
+        "Imágenes",
+        seo.imageCount ?? 0
+      )}
+
+      ${reportMetric(
+        "Sin ALT",
+        seo.imagesWithoutAlt ?? 0
+      )}
+
+    </div>
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Configuración técnica
+    </h2>
+
+
+    <div class="metrics">
+
+      ${reportMetric(
+        "HTTPS",
+        seo.hasHttps
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+      ${reportMetric(
+        "Viewport",
+        seo.hasViewport
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+      ${reportMetric(
+        "Canonical",
+        seo.hasCanonical
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+      ${reportMetric(
+        "Robots",
+        seo.hasRobots
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+      ${reportMetric(
+        "Schema",
+        seo.hasSchema
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+      ${reportMetric(
+        "Open Graph",
+        seo.hasOpenGraph
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+      ${reportMetric(
+        "Twitter Card",
+        seo.hasTwitterCard
+          ? "Correcto"
+          : "Revisar"
+      )}
+
+    </div>
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Competidores
+    </h2>
+
+    ${competitorHTML}
+
+  </div>
+
+
+  <div class="section">
+
+    <h2>
+      Checks superados
+    </h2>
+
+
+    ${
+      passed.length
+        ? passed
+            .map(
+              item => `
+                <div class="recommendation">
+
+                  <strong>
+                    ✓
+                  </strong>
+
+                  <span>
+                    ${escapeHtml(
+                      String(item)
+                    )}
+                  </span>
+
+                </div>
+              `
+            )
+            .join("")
+        : `
+          <div class="empty">
+            No hay checks registrados.
+          </div>
+        `
+    }
+
+  </div>
+
+
+  <div style="
+    margin-top:60px;
+    padding-top:20px;
+    border-top:1px solid #e5e7eb;
+    text-align:center;
+    color:#9ca3af;
+    font-size:12px;
+  ">
+
+    Informe generado por RankPilot
+    <br>
+    SEO Intelligence Platform
+
+  </div>
+
+
+</div>
+
+
+<button
+  class="print-button"
+  onclick="window.print()"
+>
+  🖨️ Imprimir / Guardar PDF
+</button>
+
+
+</body>
+
+</html>
+
+  `);
+
+
+  reportWindow.document.close();
+}
+
+
+/* =========================================================
+   HELPERS DEL INFORME
+========================================================= */
+
+function reportCategory(
+  name,
+  value
+) {
+
+  const score =
+    Number(value || 0);
+
+  const status =
+    getStatus(score);
+
+  return `
+
+    <div class="category">
+
+      <div class="category-header">
+
+        <strong>
+          ${escapeHtml(name)}
+        </strong>
+
+        <span class="${status}">
+          ${score}/100
+        </span>
+
+      </div>
+
+
+      <div class="bar">
+
+        <div
+          class="bar-fill ${status}"
+          style="width:${Math.max(
+            0,
+            Math.min(100, score)
+          )}%"
+        ></div>
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+function reportMetric(
+  name,
+  value
+) {
+
+  return `
+
+    <div class="metric">
+
+      <span>
+        ${escapeHtml(name)}
+      </span>
+
+      <strong>
+        ${escapeHtml(
+          String(value ?? "-")
+        )}
+      </strong>
+
+    </div>
 
   `;
 }
 
 
 /* =========================================================
-   NORMALIZAR KEYWORD
+   KEYWORD HELPERS
 ========================================================= */
 
-function normalizeKeyword(value) {
+function normalizeKeyword(
+  value
+) {
 
   if (
-    typeof value === "string"
+    typeof value ===
+    "string"
   ) {
 
     return value.trim();
@@ -1834,7 +2933,8 @@ function normalizeKeyword(value) {
 
   if (
     value &&
-    typeof value === "object"
+    typeof value ===
+    "object"
   ) {
 
     return String(
@@ -1855,35 +2955,31 @@ function normalizeKeyword(value) {
 }
 
 
-/* =========================================================
-   KEYWORD COUNT
-========================================================= */
-
-function getKeywordCount(item) {
+function getKeywordCount(
+  item
+) {
 
   if (
-    item &&
-    typeof item === "object"
+    !item ||
+    typeof item !==
+    "object"
   ) {
 
-    return Number(
-      item.count ||
-      item.frequency ||
-      item.occurrences ||
-      item.appearances ||
-      0
-    );
+    return 0;
 
   }
 
 
-  return 0;
+  return Number(
+    item.count ??
+    item.frequency ??
+    item.occurrences ??
+    item.appearances ??
+    0
+  );
+
 }
 
-
-/* =========================================================
-   KEYWORD TYPE
-========================================================= */
 
 function getKeywordTypeLabel(
   keyword,
@@ -1891,19 +2987,22 @@ function getKeywordTypeLabel(
 ) {
 
   const keywordText =
-    normalizeKeyword(keyword)
-      .toLowerCase();
+    normalizeKeyword(
+      keyword
+    ).toLowerCase();
 
 
   const primaryText =
-    normalizeKeyword(primary)
-      .toLowerCase();
+    normalizeKeyword(
+      primary
+    ).toLowerCase();
 
 
   if (
     primaryText &&
     keywordText &&
-    keywordText === primaryText
+    keywordText ===
+      primaryText
   ) {
 
     return "Principal";
@@ -1912,787 +3011,55 @@ function getKeywordTypeLabel(
 
 
   return "Relevante";
-}
-
-
-/* =========================================================
-   KEYWORD RECOMMENDATIONS
-========================================================= */
-
-function renderKeywordRecommendations(seo) {
-
-  const recommendations =
-    Array.isArray(
-      seo.keywordRecommendations
-    )
-      ? seo.keywordRecommendations
-      : [];
-
-
-  if (!recommendations.length) {
-    return "";
-  }
-
-
-  return `
-
-    <section class="keyword-recommendations">
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            KEYWORD OPPORTUNITIES
-          </span>
-
-          <h2>
-            Recomendaciones de keywords
-          </h2>
-
-        </div>
-
-      </div>
-
-
-      <div class="recommendation-grid">
-
-        ${recommendations
-          .slice(0, 12)
-          .map(
-            recommendation => {
-
-              const keyword =
-                normalizeKeyword(
-                  recommendation
-                );
-
-
-              let reason =
-                "Keyword relevante detectada en el contenido.";
-
-
-              if (
-                recommendation &&
-                typeof recommendation ===
-                "object"
-              ) {
-
-                reason =
-                  recommendation.reason ||
-                  recommendation.recommendation ||
-                  reason;
-
-              }
-
-
-              return `
-
-                <div class="recommendation-card">
-
-                  <div class="recommendation-icon">
-                    ✦
-                  </div>
-
-                  <div>
-
-                    <strong>
-                      ${escapeHtml(keyword)}
-                    </strong>
-
-                    <p>
-                      ${escapeHtml(reason)}
-                    </p>
-
-                  </div>
-
-                </div>
-
-              `;
-
-            }
-          )
-          .join("")}
-
-      </div>
-
-    </section>
-
-  `;
-}
-
-
-/* =========================================================
-   COMPETITOR CTA
-========================================================= */
-
-function renderCompetitorCTA() {
-
-  return `
-
-    <section class="competitor-section">
-
-      <div class="competitor-cta">
-
-        <div>
-
-          <span class="competitor-label">
-            COMPETITOR ANALYSIS
-          </span>
-
-          <h2>
-            ¿Quieres comparar tu web?
-          </h2>
-
-          <p>
-            Descubre qué keywords están trabajando
-            tus competidores y tú todavía no.
-          </p>
-
-        </div>
-
-
-        <button
-          class="competitor-button"
-          onclick="openCompetitorForm()"
-        >
-          Comparar con competidores →
-        </button>
-
-      </div>
-
-
-      <div
-        id="competitorForm"
-        class="competitor-form"
-        style="display:none;"
-      >
-
-        <div class="competitor-form-header">
-
-          <div>
-
-            <span>
-              HASTA 3 COMPETIDORES
-            </span>
-
-            <h3>
-              Introduce las webs que quieres comparar
-            </h3>
-
-          </div>
-
-        </div>
-
-
-        <div class="competitor-inputs">
-
-          <input
-            id="competitor1"
-            type="text"
-            placeholder="https://competidor1.com"
-          />
-
-          <input
-            id="competitor2"
-            type="text"
-            placeholder="https://competidor2.com"
-          />
-
-          <input
-            id="competitor3"
-            type="text"
-            placeholder="https://competidor3.com"
-          />
-
-        </div>
-
-
-        <button
-          class="competitor-run-button"
-          onclick="runCompetitorAnalysis()"
-        >
-          Analizar competidores →
-        </button>
-
-      </div>
-
-    </section>
-
-  `;
-}
-
-
-/* =========================================================
-   OPEN COMPETITOR FORM
-========================================================= */
-
-function openCompetitorForm() {
-
-  const competitorForm =
-    document.getElementById(
-      "competitorForm"
-    );
-
-
-  if (!competitorForm) {
-    return;
-  }
-
-
-  competitorForm.style.display =
-    "block";
-
-
-  setTimeout(() => {
-
-    competitorForm.scrollIntoView({
-      behavior: "smooth",
-      block: "center"
-    });
-
-  }, 50);
 
 }
 
 
 /* =========================================================
-   RUN COMPETITOR ANALYSIS
+   UI HELPERS
 ========================================================= */
 
-async function runCompetitorAnalysis() {
-
-  const inputs = [
-    document.getElementById("competitor1"),
-    document.getElementById("competitor2"),
-    document.getElementById("competitor3")
-  ];
-
-
-  let competitors =
-    inputs
-      .filter(Boolean)
-      .map(
-        input => input.value.trim()
-      )
-      .filter(Boolean);
-
-
-  if (!competitors.length) {
-
-    alert(
-      "Introduce al menos un competidor."
-    );
-
-    return;
-
-  }
-
-
-  competitors =
-    competitors.map(
-      normalizeUrl
-    );
-
-
-  const mainNormalized =
-    normalizeUrl(
-      currentMainUrl
-    );
-
-
-  competitors =
-    competitors.filter(
-      (url, index, array) =>
-        url !== mainNormalized &&
-        array.indexOf(url) === index
-    );
-
-
-  if (!competitors.length) {
-
-    alert(
-      "Los competidores deben ser diferentes de tu propia web."
-    );
-
-    return;
-
-  }
-
-
-  await analyzeWebsite(
-    currentMainUrl,
-    competitors.slice(0, 3)
-  );
-
-}
-
-
-/* =========================================================
-   COMPETITOR ANALYSIS RESULTS
-========================================================= */
-
-function renderCompetitorAnalysis(
-  competitorAnalysis,
-  competitors
+function getStatus(
+  score
 ) {
 
-  if (
-    !competitorAnalysis ||
-    !competitorAnalysis.enabled
-  ) {
+  score =
+    Number(score || 0);
 
-    return renderCompetitorCTA();
-
+  if (score >= 80) {
+    return "good";
   }
 
-
-  const competitorList =
-    Array.isArray(competitors)
-      ? competitors
-      : [];
-
-
-  const opportunities =
-    Array.isArray(
-      competitorAnalysis.opportunities
-    )
-      ? competitorAnalysis.opportunities
-      : [];
-
-
-  const sharedKeywords =
-    Array.isArray(
-      competitorAnalysis.sharedKeywords
-    )
-      ? competitorAnalysis.sharedKeywords
-      : [];
-
-
-  const uniqueKeywords =
-    Array.isArray(
-      competitorAnalysis.uniqueKeywords
-    )
-      ? competitorAnalysis.uniqueKeywords
-      : [];
-
-
-  return `
-
-    <section class="competitor-results">
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            COMPETITOR ANALYSIS
-          </span>
-
-          <h2>
-            Análisis competitivo
-          </h2>
-
-          <p>
-            Comparación de tu web frente a
-            ${competitorList.length}
-            competidor${competitorList.length > 1 ? "es" : ""}.
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div class="competitor-cards">
-
-        ${competitorList
-          .map(
-            (competitor, index) => {
-
-              const result =
-                Array.isArray(
-                  currentData?.competitors
-                )
-                  ? currentData.competitors[index]
-                  : null;
-
-
-              const competitorSeo =
-                result?.seo || null;
-
-
-              return `
-
-                <div class="competitor-card">
-
-                  <div class="competitor-card-top">
-
-                    <span>
-                      COMPETIDOR ${index + 1}
-                    </span>
-
-                    <strong>
-                      ${escapeHtml(
-                        getHostname(
-                          result?.finalUrl ||
-                          competitor
-                        )
-                      )}
-                    </strong>
-
-                  </div>
-
-
-                  ${
-                    competitorSeo
-                      ? `
-
-                        <div class="competitor-score">
-
-                          <strong>
-                            ${Number(
-                              competitorSeo.score || 0
-                            )}
-                          </strong>
-
-                          <span>
-                            /100 SEO
-                          </span>
-
-                        </div>
-
-                      `
-                      : `
-
-                        <div class="competitor-error">
-                          No se pudo analizar
-                        </div>
-
-                      `
-                  }
-
-                </div>
-
-              `;
-
-            }
-          )
-          .join("")}
-
-      </div>
-
-
-      <!-- KEYWORD GAP -->
-
-      <div class="competitor-subsection">
-
-        <div class="competitor-subtitle">
-
-          <span>
-            KEYWORD GAP
-          </span>
-
-          <h3>
-            Oportunidades de keywords
-          </h3>
-
-          <p>
-            Keywords detectadas en competidores
-            que no aparecen en tu web.
-          </p>
-
-        </div>
-
-
-        ${
-          opportunities.length
-            ? `
-
-              <div class="keyword-table-wrapper">
-
-                <table class="keyword-table">
-
-                  <thead>
-
-                    <tr>
-
-                      <th>
-                        Keyword
-                      </th>
-
-                      <th>
-                        Competidores
-                      </th>
-
-                      <th>
-                        Mejor score
-                      </th>
-
-                      <th>
-                        Oportunidad
-                      </th>
-
-                    </tr>
-
-                  </thead>
-
-
-                  <tbody>
-
-                    ${opportunities
-                      .slice(0, 20)
-                      .map(
-                        item => `
-
-                          <tr>
-
-                            <td>
-
-                              <strong>
-                                ${escapeHtml(
-                                  item.keyword
-                                )}
-                              </strong>
-
-                            </td>
-
-                            <td>
-                              ${Number(
-                                item.competitorCount || 0
-                              )}
-                            </td>
-
-                            <td>
-                              ${Number(
-                                item.bestScore || 0
-                              )}
-                            </td>
-
-                            <td>
-
-                              <span
-                                class="opportunity-badge"
-                              >
-                                ${Number(
-                                  item.opportunityScore || 0
-                                )}
-                              </span>
-
-                            </td>
-
-                          </tr>
-
-                        `
-                      )
-                      .join("")}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            `
-            : `
-
-              <div class="empty-state">
-                No se han detectado keywords exclusivas de los competidores.
-              </div>
-
-            `
-        }
-
-      </div>
-
-
-      <!-- SHARED KEYWORDS -->
-
-      ${
-        sharedKeywords.length
-          ? `
-
-            <div class="competitor-subsection">
-
-              <div class="competitor-subtitle">
-
-                <span>
-                  SHARED KEYWORDS
-                </span>
-
-                <h3>
-                  Keywords compartidas
-                </h3>
-
-              </div>
-
-
-              <div class="keyword-table-wrapper">
-
-                <table class="keyword-table">
-
-                  <thead>
-
-                    <tr>
-
-                      <th>
-                        Keyword
-                      </th>
-
-                      <th>
-                        Tu score
-                      </th>
-
-                      <th>
-                        Competidor
-                      </th>
-
-                      <th>
-                        Diferencia
-                      </th>
-
-                    </tr>
-
-                  </thead>
-
-
-                  <tbody>
-
-                    ${sharedKeywords
-                      .slice(0, 20)
-                      .map(
-                        item => `
-
-                          <tr>
-
-                            <td>
-
-                              <strong>
-                                ${escapeHtml(
-                                  item.keyword
-                                )}
-                              </strong>
-
-                            </td>
-
-                            <td>
-                              ${Number(
-                                item.ownScore || 0
-                              )}
-                            </td>
-
-                            <td>
-                              ${Number(
-                                item.competitorScore || 0
-                              )}
-                            </td>
-
-                            <td>
-
-                              ${
-                                Number(
-                                  item.difference || 0
-                                ) >= 0
-                                  ? `
-                                    <span class="keyword-positive">
-                                      +${Number(
-                                        item.difference || 0
-                                      )}
-                                    </span>
-                                  `
-                                  : `
-                                    <span class="keyword-negative">
-                                      ${Number(
-                                        item.difference || 0
-                                      )}
-                                    </span>
-                                  `
-                              }
-
-                            </td>
-
-                          </tr>
-
-                        `
-                      )
-                      .join("")}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            </div>
-
-          `
-          : ""
-      }
-
-
-      <!-- UNIQUE KEYWORDS -->
-
-      ${
-        uniqueKeywords.length
-          ? `
-
-            <div class="competitor-subsection">
-
-              <div class="competitor-subtitle">
-
-                <span>
-                  YOUR KEYWORDS
-                </span>
-
-                <h3>
-                  Keywords propias
-                </h3>
-
-              </div>
-
-
-              <div class="keyword-chips">
-
-                ${uniqueKeywords
-                  .slice(0, 30)
-                  .map(
-                    item => `
-
-                      <span class="keyword-chip">
-
-                        ${escapeHtml(
-                          item.keyword
-                        )}
-
-                        <small>
-                          ${Number(
-                            item.ownScore || 0
-                          )}
-                        </small>
-
-                      </span>
-
-                    `
-                  )
-                  .join("")}
-
-              </div>
-
-            </div>
-
-          `
-          : ""
-      }
-
-    </section>
-
-  `;
+  if (score >= 60) {
+    return "warning";
+  }
+
+  return "bad";
 }
 
 
-/* =========================================================
-   CATEGORY CARD
-========================================================= */
+function getLabel(
+  score
+) {
+
+  score =
+    Number(score || 0);
+
+  if (score >= 90) {
+    return "Excelente";
+  }
+
+  if (score >= 80) {
+    return "Bueno";
+  }
+
+  if (score >= 60) {
+    return "Mejorable";
+  }
+
+  return "Necesita atención";
+}
+
 
 function categoryCard(
   name,
@@ -2703,13 +3070,8 @@ function categoryCard(
   score =
     Number(score || 0);
 
-
   const status =
-    score >= 80
-      ? "good"
-      : score >= 60
-      ? "warning"
-      : "bad";
+    getStatus(score);
 
 
   return `
@@ -2725,15 +3087,15 @@ function categoryCard(
           </strong>
 
           <p>
-            ${escapeHtml(description)}
+            ${escapeHtml(
+              description
+            )}
           </p>
 
         </div>
 
 
-        <span
-          class="category-score ${status}"
-        >
+        <span class="category-score ${status}">
           ${score}
         </span>
 
@@ -2744,9 +3106,9 @@ function categoryCard(
 
         <div
           class="progress-fill ${status}"
-          style="width:${Math.min(
-            100,
-            Math.max(0, score)
+          style="width:${Math.max(
+            0,
+            Math.min(100, score)
           )}%"
         ></div>
 
@@ -2757,10 +3119,6 @@ function categoryCard(
   `;
 }
 
-
-/* =========================================================
-   METRIC
-========================================================= */
 
 function metric(
   name,
@@ -2777,11 +3135,15 @@ function metric(
       </span>
 
       <strong>
-        ${escapeHtml(value)}
+        ${escapeHtml(
+          String(value ?? "-")
+        )}
       </strong>
 
       <small>
-        ${escapeHtml(subtitle)}
+        ${escapeHtml(
+          String(subtitle || "")
+        )}
       </small>
 
     </div>
@@ -2789,10 +3151,6 @@ function metric(
   `;
 }
 
-
-/* =========================================================
-   TECHNICAL ITEM
-========================================================= */
 
 function technicalItem(
   name,
@@ -2804,17 +3162,27 @@ function technicalItem(
     <div class="technical-item">
 
       <span
-        class="${passed ? "tech-good" : "tech-bad"}"
+        class="${
+          passed
+            ? "tech-good"
+            : "tech-bad"
+        }"
       >
         ${passed ? "✓" : "!"}
       </span>
+
 
       <strong>
         ${escapeHtml(name)}
       </strong>
 
+
       <span>
-        ${passed ? "Correcto" : "Revisar"}
+        ${
+          passed
+            ? "Correcto"
+            : "Revisar"
+        }
       </span>
 
     </div>
@@ -2823,17 +3191,15 @@ function technicalItem(
 }
 
 
-/* =========================================================
-   SHOW FIX
-========================================================= */
-
-function showFix(button) {
+function showFix(
+  button
+) {
 
   const fix =
-    button.parentElement.querySelector(
-      ".fix-content"
-    );
-
+    button.parentElement
+      .querySelector(
+        ".fix-content"
+      );
 
   if (fix) {
 
@@ -2846,876 +3212,118 @@ function showFix(button) {
 }
 
 
-/* =========================================================
-   STATUS
-========================================================= */
+function normalizeUrl(
+  value
+) {
 
-function getStatus(score) {
-
-  score =
-    Number(score || 0);
-
-
-  if (score >= 80) {
-    return "good";
-  }
-
-
-  if (score >= 60) {
-    return "warning";
-  }
-
-
-  return "bad";
-}
-
-
-/* =========================================================
-   LABEL
-========================================================= */
-
-function getLabel(score) {
-
-  score =
-    Number(score || 0);
-
-
-  if (score >= 90) {
-    return "Excelente";
-  }
-
-
-  if (score >= 80) {
-    return "Bueno";
-  }
-
-
-  if (score >= 60) {
-    return "Mejorable";
-  }
-
-
-  return "Necesita atención";
-}
-
-
-/* =========================================================
-   NORMALIZE URL
-========================================================= */
-
-function normalizeUrl(url) {
-
-  let normalized =
-    String(url || "").trim();
-
-
-  if (!/^https?:\/\//i.test(normalized)) {
-
-    normalized =
-      "https://" + normalized;
-
-  }
-
-
-  try {
-
-    const parsed =
-      new URL(normalized);
-
-
-    return (
-      parsed.protocol.toLowerCase() +
-      "//" +
-      parsed.hostname.toLowerCase() +
-      (
-        parsed.pathname !== "/"
-          ? parsed.pathname.replace(/\/$/, "")
-          : ""
-      )
-    );
-
-  } catch {
-
-    return normalized
-      .toLowerCase()
-      .replace(/\/$/, "");
-
-  }
-
-}
-
-
-/* =========================================================
-   HOSTNAME
-========================================================= */
-
-function getHostname(url) {
-
-  try {
-
-    return new URL(url).hostname;
-
-  } catch {
-
-    return String(url || "")
-      .replace(/^https?:\/\//i, "")
-      .split("/")[0];
-
-  }
-
-}
-
-
-/* =========================================================
-   ESCAPE HTML
-========================================================= */
-
-function escapeHtml(value) {
-
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-
-}
-
-
-/* =========================================================
-   ESTILOS EXTRA
-========================================================= */
-
-function injectGlobalStyles() {
+  let url =
+    String(value || "")
+      .trim();
 
   if (
-    document.getElementById(
-      "rankpilot-extra-styles"
-    )
+    !/^https?:\/\//i.test(url)
   ) {
 
-    return;
+    url =
+      "https://" +
+      url;
 
   }
 
-
-  const style =
-    document.createElement("style");
-
-
-  style.id =
-    "rankpilot-extra-styles";
-
-
-  style.textContent = `
-
-    /* ACTION PLAN */
-
-    .action-plan-section {
-      margin-top: 42px;
-      margin-bottom: 42px;
-    }
-
-    .action-plan-section .section-title {
-      margin-bottom: 20px;
-    }
-
-    .action-plan-section .section-title p {
-      margin-top: 7px;
-      color: #8b8f98;
-      font-size: 14px;
-    }
-
-    .action-summary {
-      display: grid;
-      grid-template-columns:
-        repeat(4, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-
-    .action-summary-card {
-      padding: 20px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background:
-        rgba(255,255,255,.025);
-    }
-
-    .action-summary-card strong {
-      display: block;
-      font-size: 30px;
-      line-height: 1;
-      margin-bottom: 8px;
-    }
-
-    .action-summary-card span {
-      color: #9297a2;
-      font-size: 13px;
-    }
-
-    .action-summary-card.high strong {
-      color: #ff6b6b;
-    }
-
-    .action-summary-card.medium strong {
-      color: #f3c969;
-    }
-
-    .action-summary-card.opportunity strong {
-      color: #66d99a;
-    }
-
-    .action-summary-card.total strong {
-      color: #ffffff;
-    }
-
-    .action-group {
-      margin-bottom: 26px;
-    }
-
-    .action-group-header {
-      padding: 17px 20px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-bottom: 0;
-      border-radius: 16px 16px 0 0;
-      background:
-        rgba(255,255,255,.025);
-    }
-
-    .action-group-header > div {
-      display: flex;
-      align-items: center;
-      gap: 13px;
-    }
-
-    .action-group-icon {
-      font-size: 19px;
-    }
-
-    .action-group-header strong {
-      font-size: 15px;
-    }
-
-    .action-group-header p {
-      margin: 4px 0 0;
-      color: #858a96;
-      font-size: 12px;
-    }
-
-    .action-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-
-    .action-card {
-      display: flex;
-      gap: 18px;
-      padding: 22px;
-      background:
-        rgba(255,255,255,.018);
-      border:
-        1px solid rgba(255,255,255,.07);
-      border-top: 0;
-    }
-
-    .action-card:last-child {
-      border-radius: 0 0 16px 16px;
-    }
-
-    .action-number {
-      flex: 0 0 34px;
-      height: 34px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background:
-        rgba(255,255,255,.07);
-      color: #fff;
-      font-weight: 700;
-      font-size: 13px;
-    }
-
-    .action-main {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .action-card-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 20px;
-    }
-
-    .action-category {
-      display: inline-block;
-      margin-bottom: 7px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: #858a96;
-    }
-
-    .action-card h3 {
-      margin: 0;
-      color: #fff;
-      font-size: 16px;
-      line-height: 1.35;
-    }
-
-    .action-priority {
-      flex-shrink: 0;
-      padding: 6px 9px;
-      border-radius: 999px;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .07em;
-    }
-
-    .action-priority.high {
-      background:
-        rgba(255,107,107,.12);
-      color: #ff8585;
-    }
-
-    .action-priority.medium {
-      background:
-        rgba(243,201,105,.12);
-      color: #f3c969;
-    }
-
-    .action-priority.opportunity {
-      background:
-        rgba(102,217,154,.12);
-      color: #66d99a;
-    }
-
-    .action-detail {
-      display: grid;
-      grid-template-columns:
-        minmax(0, 1fr)
-        minmax(0, 1fr)
-        130px;
-      gap: 22px;
-      margin-top: 19px;
-      padding-top: 18px;
-      border-top:
-        1px solid rgba(255,255,255,.06);
-    }
-
-    .action-detail-block span,
-    .action-impact span {
-      display: block;
-      margin-bottom: 7px;
-      color: #737985;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .08em;
-    }
-
-    .action-detail-block p {
-      margin: 0;
-      color: #aeb2bb;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .action-impact {
-      padding-left: 18px;
-      border-left:
-        1px solid rgba(255,255,255,.07);
-    }
-
-    .action-impact strong {
-      font-size: 14px;
-    }
-
-    .action-impact strong.high {
-      color: #ff8585;
-    }
-
-    .action-impact strong.medium {
-      color: #f3c969;
-    }
-
-    .action-impact strong.opportunity {
-      color: #66d99a;
-    }
-
-    .action-empty {
-      padding: 45px 20px;
-      text-align: center;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background:
-        rgba(255,255,255,.02);
-    }
-
-    .action-empty > div {
-      font-size: 30px;
-      margin-bottom: 10px;
-    }
-
-    .action-empty strong {
-      color: #fff;
-    }
-
-    .action-empty p {
-      color: #858a96;
-      font-size: 13px;
-      margin-top: 8px;
-    }
-
-
-    /* COMPETITOR */
-
-    .competitor-section,
-    .competitor-results {
-      margin-top: 38px;
-      margin-bottom: 38px;
-    }
-
-    .competitor-cta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 25px;
-      padding: 28px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 18px;
-      background:
-        linear-gradient(
-          135deg,
-          rgba(255,255,255,.035),
-          rgba(255,255,255,.015)
-        );
-    }
-
-    .competitor-label,
-    .competitor-card-top span,
-    .competitor-subtitle span {
-      display: block;
-      color: #7e8490;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .1em;
-    }
-
-    .competitor-cta h2 {
-      margin: 7px 0;
-      color: #fff;
-      font-size: 21px;
-    }
-
-    .competitor-cta p {
-      margin: 0;
-      color: #9095a0;
-      font-size: 13px;
-    }
-
-    .competitor-button,
-    .competitor-run-button {
-      border: 0;
-      border-radius: 10px;
-      padding: 13px 18px;
-      background: #fff;
-      color: #111;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .competitor-form {
-      margin-top: 12px;
-      padding: 25px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 18px;
-      background:
-        rgba(255,255,255,.02);
-    }
-
-    .competitor-form-header {
-      margin-bottom: 18px;
-    }
-
-    .competitor-form-header span {
-      color: #7e8490;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .1em;
-    }
-
-    .competitor-form-header h3 {
-      margin: 7px 0 0;
-      color: #fff;
-      font-size: 16px;
-    }
-
-    .competitor-inputs {
-      display: grid;
-      grid-template-columns:
-        repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .competitor-inputs input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 13px 14px;
-      border:
-        1px solid rgba(255,255,255,.09);
-      border-radius: 9px;
-      background:
-        rgba(255,255,255,.035);
-      color: #fff;
-      outline: none;
-    }
-
-    .competitor-run-button {
-      width: 100%;
-    }
-
-    .competitor-cards {
-      display: grid;
-      grid-template-columns:
-        repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      margin-bottom: 30px;
-    }
-
-    .competitor-card {
-      padding: 20px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background:
-        rgba(255,255,255,.025);
-    }
-
-    .competitor-card-top strong {
-      display: block;
-      margin-top: 7px;
-      color: #fff;
-      font-size: 15px;
-      word-break: break-all;
-    }
-
-    .competitor-score {
-      display: flex;
-      align-items: baseline;
-      gap: 5px;
-      margin-top: 20px;
-    }
-
-    .competitor-score strong {
-      color: #fff;
-      font-size: 34px;
-    }
-
-    .competitor-score span {
-      color: #858a96;
-      font-size: 12px;
-    }
-
-    .competitor-subsection {
-      margin-top: 28px;
-    }
-
-    .competitor-subtitle {
-      margin-bottom: 15px;
-    }
-
-    .competitor-subtitle h3 {
-      margin: 7px 0 4px;
-      color: #fff;
-      font-size: 17px;
-    }
-
-    .competitor-subtitle p {
-      margin: 0;
-      color: #858a96;
-      font-size: 12px;
-    }
-
-
-    /* KEYWORDS */
-
-    .keyword-section,
-    .keyword-recommendations {
-      margin-top: 38px;
-      margin-bottom: 38px;
-    }
-
-    .keyword-dashboard {
-      display: grid;
-      grid-template-columns:
-        2fr 1fr;
-      gap: 14px;
-      margin-bottom: 18px;
-    }
-
-    .keyword-primary,
-    .keyword-count {
-      padding: 22px;
-      border:
-        1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background:
-        rgba(255,255,255,.025);
-    }
-
-    .keyword-primary span {
-      display: block;
-      color: #737985;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      margin-bottom: 8px;
-    }
-
-    .keyword-primary strong {
-      color: #fff;
-      font-size: 22px;
-    }
-
-    .keyword-count {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .keyword-count strong {
-      color: #fff;
-      font-size: 28px;
-    }
-
-    .keyword-count span {
-      margin-top: 4px;
-      color: #858a96;
-      font-size: 12px;
-    }
-
-    .recommendation-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .recommendation-card {
-      display: flex;
-      gap: 13px;
-      padding: 18px;
-      border:
-        1px solid rgba(255,255,255,.07);
-      border-radius: 14px;
-      background:
-        rgba(255,255,255,.02);
-    }
-
-    .recommendation-icon {
-      flex: 0 0 30px;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      background:
-        rgba(255,255,255,.07);
-      color: #fff;
-    }
-
-    .recommendation-card strong {
-      color: #fff;
-      font-size: 13px;
-    }
-
-    .recommendation-card p {
-      margin: 5px 0 0;
-      color: #858a96;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-
-    /* TABLE */
-
-    .keyword-table-wrapper {
-      overflow-x: auto;
-      border:
-        1px solid rgba(255,255,255,.07);
-      border-radius: 15px;
-    }
-
-    .keyword-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 600px;
-    }
-
-    .keyword-table th {
-      padding: 13px 15px;
-      text-align: left;
-      color: #707580;
-      font-size: 9px;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      border-bottom:
-        1px solid rgba(255,255,255,.07);
-    }
-
-    .keyword-table td {
-      padding: 14px 15px;
-      color: #aeb2bb;
-      font-size: 13px;
-      border-bottom:
-        1px solid rgba(255,255,255,.05);
-    }
-
-    .keyword-table tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .keyword-table td strong {
-      color: #fff;
-    }
-
-    .keyword-badge,
-    .opportunity-badge {
-      display: inline-block;
-      padding: 5px 8px;
-      border-radius: 999px;
-      background:
-        rgba(255,255,255,.06);
-      color: #b9bdc6;
-      font-size: 10px;
-    }
-
-    .opportunity-badge {
-      color: #66d99a;
-      background:
-        rgba(102,217,154,.1);
-    }
-
-    .keyword-positive {
-      color: #66d99a;
-    }
-
-    .keyword-negative {
-      color: #ff8585;
-    }
-
-    .keyword-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .keyword-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border:
-        1px solid rgba(255,255,255,.07);
-      border-radius: 999px;
-      color: #d4d7dd;
-      background:
-        rgba(255,255,255,.025);
-      font-size: 12px;
-    }
-
-    .keyword-chip small {
-      color: #858a96;
-    }
-
-
-    /* RESPONSIVE */
-
-    @media (max-width: 900px) {
-
-      .action-summary {
-        grid-template-columns:
-          repeat(2, minmax(0, 1fr));
-      }
-
-      .action-detail {
-        grid-template-columns: 1fr;
-      }
-
-      .action-impact {
-        padding-left: 0;
-        padding-top: 15px;
-        border-left: 0;
-        border-top:
-          1px solid rgba(255,255,255,.07);
-      }
-
-      .competitor-inputs,
-      .competitor-cards {
-        grid-template-columns: 1fr;
-      }
-
-      .competitor-cta {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .keyword-dashboard {
-        grid-template-columns: 1fr;
-      }
-
-      .recommendation-grid {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-
-    @media (max-width: 600px) {
-
-      .action-summary {
-        grid-template-columns:
-          repeat(2, minmax(0, 1fr));
-      }
-
-      .action-card {
-        padding: 17px;
-        gap: 12px;
-      }
-
-      .action-number {
-        flex-basis: 28px;
-        width: 28px;
-        height: 28px;
-      }
-
-      .action-card-top {
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .competitor-button {
-        width: 100%;
-      }
-
-    }
-
-  `;
-
-
-  document.head.appendChild(style);
-
+  return url;
+}
+
+
+function getHostname(
+  value
+) {
+
+  try {
+
+    return new URL(
+      normalizeUrl(value)
+    ).hostname;
+
+  } catch {
+
+    return String(
+      value || ""
+    );
+
+  }
+
+}
+
+
+function escapeHtml(
+  value
+) {
+
+  return String(
+    value ?? ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+
+/* =========================================================
+   FUTURO SISTEMA DE PLANES
+========================================================= */
+
+function hasFeature(
+  feature
+) {
+
+  /*
+    ESTA FUNCIÓN QUEDA PREPARADA
+    PARA EL SISTEMA DE SUSCRIPCIONES.
+
+    Más adelante podremos hacer:
+
+    FREE
+      - seo_analysis
+      - limited_keywords
+
+    PRO
+      - seo_analysis
+      - keyword_intelligence
+      - keyword_recommendations
+      - competitor_analysis
+      - seo_reports
+
+    BUSINESS
+      - todo lo anterior
+      - monitoring
+      - multiple_projects
+      - white_label
+      - advanced_reports
+
+    De momento devuelve true para
+    que todas las funciones sigan
+    funcionando durante el desarrollo.
+  */
+
+  return true;
 }
 
 
@@ -3732,3 +3340,5 @@ window.openCompetitorForm =
 window.runCompetitorAnalysis =
   runCompetitorAnalysis;
 
+window.generateSEOReport =
+  generateSEOReport;
