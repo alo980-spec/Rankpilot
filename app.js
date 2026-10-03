@@ -10815,3 +10815,117 @@ En la siguiente fase conectaremos Stripe para realizar el pago.
   }
 
 })();
+
+// =========================================================
+// RANKPILOT — BACKEND PLAN SYNC
+// =========================================================
+
+const RANKPILOT_PLAN_API =
+  "https://rankpilot-api.alvaroalvarezmonteagudo.workers.dev/plan";
+
+let rankPilotBackendPlans = null;
+
+// ---------------------------------------------------------
+// CARGAR PLANES DESDE EL WORKER
+// ---------------------------------------------------------
+
+async function loadRankPilotBackendPlans() {
+  try {
+    const response = await fetch(
+      RANKPILOT_PLAN_API
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "No se pudieron cargar los planes."
+      );
+    }
+
+    const data =
+      await response.json();
+
+    if (
+      !data ||
+      !data.success ||
+      !data.plans
+    ) {
+      throw new Error(
+        "Respuesta de planes inválida."
+      );
+    }
+
+    rankPilotBackendPlans =
+      data.plans;
+
+    // Guardamos una copia local
+    // para poder utilizarla en la interfaz.
+
+    localStorage.setItem(
+      "rankpilot_backend_plans_v1",
+      JSON.stringify(
+        data.plans
+      )
+    );
+
+    return data.plans;
+
+  } catch (error) {
+
+    console.warn(
+      "RankPilot: no se pudieron cargar los planes desde el Worker.",
+      error
+    );
+
+    // Intentamos utilizar la última
+    // versión almacenada localmente.
+
+    try {
+      const cached =
+        localStorage.getItem(
+          "rankpilot_backend_plans_v1"
+        );
+
+      if (cached) {
+        rankPilotBackendPlans =
+          JSON.parse(cached);
+
+        return rankPilotBackendPlans;
+      }
+    } catch {
+      // Ignorar error de caché
+    }
+
+    return null;
+  }
+}
+
+// ---------------------------------------------------------
+// OBTENER PLAN ACTUAL
+// ---------------------------------------------------------
+
+function getRankPilotCurrentPlan() {
+  try {
+    const storedPlan =
+      localStorage.getItem(
+        "rankpilot_plan_v1"
+      );
+
+    if (
+      storedPlan === "starter" ||
+      storedPlan === "pro" ||
+      storedPlan === "agency"
+    ) {
+      return storedPlan;
+    }
+  } catch {
+    // Ignorar
+  }
+
+  return "starter";
+}
+
+// ---------------------------------------------------------
+// OBTENER CONFIGURACIÓN DEL PLAN
+// ---------------------------------------------------------
+
+function getRankPilotBackendPlan
