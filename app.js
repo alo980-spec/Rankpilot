@@ -1,1027 +1,670 @@
 /* =========================================================
-   RANKPILOT — APP.JS COMPLETO
+   RANKPILOT — APP.JS
+   SEO ANALYZER + REPORTS + KEYWORDS + COMPETITORS
+   DASHBOARD + PROJECTS + HISTORY + ACCOUNT
    ========================================================= */
 
 
 /* =========================================================
-   CONFIGURACIÓN
+   CONFIG
 ========================================================= */
 
 const WORKER_URL =
-  "https://rankpilot-api.alvaroalvarezmonteagudo.workers.dev/";
+    "https://rankpilot-api.alvaroalvarezmonteagudo.workers.dev/";
+
+
+/* =========================================================
+   DOM
+========================================================= */
 
 const form = document.getElementById("seoForm");
 const input = document.getElementById("urlInput");
 const message = document.getElementById("analyzerMessage");
+
+
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
 
 let currentMainUrl = "";
 let currentData = null;
 
 
 /* =========================================================
-   UTILIDADES
+   BASIC HELPERS
 ========================================================= */
 
 function escapeHtml(value) {
 
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
 }
 
 
 function getHostname(url) {
 
-  try {
+    try {
 
-    return new URL(url).hostname;
+        return new URL(url).hostname.replace(/^www\./, "");
 
-  } catch {
+    } catch (error) {
 
-    return url || "";
+        return url || "";
 
-  }
+    }
+
+}
+
+
+function normalizeUrl(value) {
+
+    let url = String(value || "").trim();
+
+    if (!url) {
+        return "";
+    }
+
+    if (!/^https?:\/\//i.test(url)) {
+        url = "https://" + url;
+    }
+
+    try {
+
+        return new URL(url).href;
+
+    } catch (error) {
+
+        return "";
+
+    }
+
+}
+
+
+function getNumericScore(value) {
+
+    if (typeof value === "number") {
+        return Math.round(value);
+    }
+
+    if (value && typeof value === "object") {
+
+        const candidates = [
+            value.score,
+            value.value,
+            value.total,
+            value.percentage
+        ];
+
+        for (const candidate of candidates) {
+
+            if (
+                typeof candidate === "number" &&
+                Number.isFinite(candidate)
+            ) {
+                return Math.round(candidate);
+            }
+
+        }
+
+    }
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed)
+        ? Math.round(parsed)
+        : 0;
+
+}
+
+
+function clampScore(score) {
+
+    return Math.max(
+        0,
+        Math.min(100, getNumericScore(score))
+    );
 
 }
 
 
 function getStatus(score) {
 
-  score = Number(score) || 0;
+    score = clampScore(score);
 
-  if (score >= 80) return "good";
+    if (score >= 90) {
+        return "Excelente";
+    }
 
-  if (score >= 60) return "warning";
+    if (score >= 75) {
+        return "Bueno";
+    }
 
-  return "bad";
+    if (score >= 50) {
+        return "Mejorable";
+    }
+
+    return "Crítico";
 
 }
 
 
 function getLabel(score) {
 
-  score = Number(score) || 0;
+    score = clampScore(score);
 
-  if (score >= 90) return "Excelente";
+    if (score >= 90) {
+        return "Excelente";
+    }
 
-  if (score >= 80) return "Bueno";
+    if (score >= 75) {
+        return "Buen SEO";
+    }
 
-  if (score >= 60) return "Mejorable";
+    if (score >= 50) {
+        return "Necesita mejoras";
+    }
 
-  return "Necesita atención";
+    return "Necesita atención";
+}
+
+
+function normalizeBoolean(value) {
+
+    if (typeof value === "boolean") {
+        return value;
+    }
+
+    if (
+        value === "true" ||
+        value === "yes" ||
+        value === "1" ||
+        value === 1
+    ) {
+        return true;
+    }
+
+    return false;
 
 }
 
 
 /* =========================================================
-   KEYWORD UTILITIES
-========================================================= */
-
-function normalizeKeyword(value) {
-
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  if (typeof value === "number") {
-    return String(value);
-  }
-
-  if (typeof value === "object") {
-
-    const possible =
-      value.keyword ??
-      value.term ??
-      value.text ??
-      value.name ??
-      value.word ??
-      value.value ??
-      "";
-
-    return String(possible).trim();
-
-  }
-
-  return String(value).trim();
-
-}
-
-
-function getKeywordCount(value) {
-
-  if (
-    value &&
-    typeof value === "object"
-  ) {
-
-    return (
-      value.count ??
-      value.frequency ??
-      value.occurrences ??
-      value.volume ??
-      ""
-    );
-
-  }
-
-  return "";
-
-}
-
-
-function getKeywordTypeLabel(keyword, primary) {
-
-  const a =
-    String(keyword || "")
-      .toLowerCase()
-      .trim();
-
-  const b =
-    String(primary || "")
-      .toLowerCase()
-      .trim();
-
-  if (!a) return "";
-
-  if (b && a === b) {
-    return "Principal";
-  }
-
-  if (
-    b &&
-    (
-      a.includes(b) ||
-      b.includes(a)
-    )
-  ) {
-    return "Relacionada";
-  }
-
-  return "Detectada";
-
-}
-
-
-/* =========================================================
-   ANALIZADOR PRINCIPAL
+   FORMULARIO PRINCIPAL
 ========================================================= */
 
 if (form) {
 
-  form.addEventListener(
-    "submit",
-    async (event) => {
+    form.addEventListener("submit", async function(event) {
 
-      event.preventDefault();
+        event.preventDefault();
 
-      let url =
-        input
-          ? input.value.trim()
-          : "";
+        const rawUrl = input
+            ? input.value.trim()
+            : "";
 
-      if (!url) {
+        const url = normalizeUrl(rawUrl);
 
-        message.innerHTML = `
-          <div class="seo-error">
-            ❌ Introduce una URL.
-          </div>
-        `;
+        if (!url) {
 
-        return;
-      }
+            if (message) {
 
-
-      if (
-        !/^https?:\/\//i.test(url)
-      ) {
-
-        url =
-          "https://" + url;
-
-      }
-
-
-      currentMainUrl = url;
-
-
-      message.innerHTML = `
-
-        <div class="seo-loading">
-
-          <div class="loading-spinner"></div>
-
-          <h3>
-            Analizando ${escapeHtml(url)}
-          </h3>
-
-          <p>
-            Revisando SEO técnico, contenido e indexabilidad...
-          </p>
-
-        </div>
-
-      `;
-
-
-      try {
-
-        const response =
-          await fetch(
-            `${WORKER_URL}?url=${encodeURIComponent(url)}`
-          );
-
-
-        const data =
-          await response.json();
-
-
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-
-          throw new Error(
-            data.error ||
-            "No se pudo analizar la web."
-          );
-
-        }
-
-
-        currentData = data;
-
-
-        currentMainUrl =
-          data.finalUrl ||
-          data.url ||
-          url;
-
-
-        renderResults(data);
-
-
-        /*
-          Guardar automáticamente el análisis
-          en el sistema de proyectos.
-        */
-
-        saveCurrentAnalysisToProject(data);
-
-
-      } catch (error) {
-
-        console.error(error);
-
-
-        message.innerHTML = `
-
-          <div class="seo-error">
-
-            <strong>
-              ❌ No hemos podido analizar la web.
-            </strong>
-
-            <p>
-              ${escapeHtml(error.message)}
-            </p>
-
-          </div>
-
-        `;
-
-      }
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   RESULTADOS
-========================================================= */
-
-function renderResults(data) {
-
-  const seo =
-    data.seo || {};
-
-
-  const categories =
-    seo.categories || {};
-
-
-  const issues =
-    Array.isArray(seo.issues)
-      ? seo.issues
-      : [];
-
-
-  const warnings =
-    Array.isArray(seo.warnings)
-      ? seo.warnings
-      : [];
-
-
-  const passed =
-    Array.isArray(seo.passed)
-      ? seo.passed
-      : [];
-
-
-  const score =
-    Number(seo.score || 0);
-
-
-  const criticalCount =
-    issues.length;
-
-
-  const warningCount =
-    warnings.length;
-
-
-  message.innerHTML = `
-
-    <div class="seo-dashboard">
-
-
-      <!-- HEADER -->
-
-      <div class="results-header">
-
-        <div>
-
-          <span class="results-label">
-            ANÁLISIS SEO
-          </span>
-
-          <h2>
-            ${escapeHtml(
-              getHostname(
-                data.finalUrl ||
-                currentMainUrl
-              )
-            )}
-          </h2>
-
-          <p>
-            ${escapeHtml(
-              data.finalUrl ||
-              currentMainUrl ||
-              ""
-            )}
-          </p>
-
-        </div>
-
-
-        <button
-          class="new-analysis"
-          onclick="window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-          })"
-        >
-          ← Nuevo análisis
-        </button>
-
-      </div>
-
-
-      <!-- SCORE -->
-
-      <div class="main-score-card">
-
-        <div class="score-ring ${getStatus(score)}">
-
-          <div class="score-ring-inner">
-
-            <strong>
-              ${score}
-            </strong>
-
-            <span>
-              /100
-            </span>
-
-          </div>
-
-        </div>
-
-
-        <div class="score-summary">
-
-          <span class="score-label">
-            SEO SCORE
-          </span>
-
-          <h2>
-            ${getLabel(score)}
-          </h2>
-
-          <p>
-            Tu página ha sido analizada en múltiples
-            factores técnicos y de contenido.
-          </p>
-
-
-          <div class="score-stats">
-
-            <span>
-              🔴 ${criticalCount} problemas
-            </span>
-
-            <span>
-              🟡 ${warningCount} recomendaciones
-            </span>
-
-            <span>
-              🟢 ${passed.length} correctos
-            </span>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <!-- INFORME -->
-
-      <div class="report-action">
-
-        <button
-          class="generate-report-button"
-          onclick="generateSEOReport()"
-        >
-          📄 Generar informe SEO
-        </button>
-
-      </div>
-
-
-      <!-- CATEGORÍAS -->
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            PERFORMANCE
-          </span>
-
-          <h2>
-            Desglose SEO
-          </h2>
-
-        </div>
-
-      </div>
-
-
-      <div class="category-grid">
-
-        ${categoryCard(
-          "Technical SEO",
-          categories.technical,
-          "Infraestructura y configuración técnica"
-        )}
-
-        ${categoryCard(
-          "On-Page SEO",
-          categories.onPage,
-          "Elementos SEO visibles de la página"
-        )}
-
-        ${categoryCard(
-          "Content",
-          categories.content,
-          "Calidad y cantidad del contenido"
-        )}
-
-        ${categoryCard(
-          "Indexability",
-          categories.indexability,
-          "Factores relacionados con indexación"
-        )}
-
-      </div>
-
-
-      <!-- ACTION PLAN -->
-
-      ${renderActionPlan(seo)}
-
-
-      <!-- KEYWORDS -->
-
-      ${renderKeywordIntelligence(seo)}
-
-
-      <!-- RECOMENDACIONES -->
-
-      ${renderKeywordRecommendations(seo)}
-
-
-      <!-- COMPETIDORES -->
-
-      ${renderCompetitorCTA()}
-
-
-      <!-- PROBLEMAS -->
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            PRIORIDADES
-          </span>
-
-          <h2>
-            Qué deberías solucionar
-          </h2>
-
-        </div>
-
-      </div>
-
-
-      <div class="problems-card">
-
-        ${
-          issues.length
-            ? issues
-                .map(
-                  (issue, index) => `
-
-                    <div class="problem critical">
-
-                      <div class="problem-icon">
-                        ${index + 1}
-                      </div>
-
-
-                      <div class="problem-content">
-
-                        <strong>
-                          ${escapeHtml(String(issue))}
-                        </strong>
-
-                        <p>
-                          Este problema puede afectar
-                          al rendimiento SEO de la página.
-                        </p>
-
-                      </div>
-
-
-                      <button
-                        class="fix-button"
-                        onclick="showFix(this)"
-                      >
-                        Cómo solucionarlo
-                      </button>
-
-
-                      <div class="fix-content">
-
-                        Revisa este elemento y corrígelo
-                        en el código o CMS de tu página.
-                        Después vuelve a ejecutar el análisis
-                        para comprobar el resultado.
-
-                      </div>
-
+                message.innerHTML = `
+                    <div class="rankpilot-error">
+                        Introduce una URL válida.
                     </div>
+                `;
 
-                  `
-                )
-                .join("")
-            : `
+            }
 
-              <div class="empty-state">
-                🎉 No se han detectado problemas críticos.
-              </div>
+            return;
 
-            `
         }
 
 
-        ${
-          warnings.length
-            ? warnings
-                .map(
-                  (warning, index) => `
-
-                    <div class="problem warning">
-
-                      <div class="problem-icon">
-                        ${index + 1}
-                      </div>
+        currentMainUrl = url;
 
 
-                      <div class="problem-content">
+        if (message) {
 
-                        <strong>
-                          ${escapeHtml(String(warning))}
-                        </strong>
-
-                        <p>
-                          Es una oportunidad para mejorar
-                          el SEO de esta página.
-                        </p>
-
-                      </div>
-
-
-                      <button
-                        class="fix-button"
-                        onclick="showFix(this)"
-                      >
-                        Cómo solucionarlo
-                      </button>
-
-
-                      <div class="fix-content">
-
-                        Optimiza este elemento siguiendo
-                        las buenas prácticas SEO y vuelve
-                        a analizar la página.
-
-                      </div>
-
+            message.innerHTML = `
+                <div class="rankpilot-loading">
+                    <div class="rankpilot-spinner"></div>
+                    <div>
+                        <strong>Analizando tu web...</strong>
+                        <span>
+                            Estamos recopilando datos SEO.
+                        </span>
                     </div>
-
-                  `
-                )
-                .join("")
-            : ""
-        }
-
-      </div>
-
-
-      <!-- ON PAGE -->
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            ON-PAGE
-          </span>
-
-          <h2>
-            Elementos de la página
-          </h2>
-
-        </div>
-
-      </div>
-
-
-      <div class="metrics-grid">
-
-        ${metric(
-          "Title",
-          seo.title || "No encontrado",
-          `${seo.titleLength || 0} caracteres`
-        )}
-
-        ${metric(
-          "Meta Description",
-          seo.description || "No encontrada",
-          `${seo.descriptionLength || 0} caracteres`
-        )}
-
-        ${metric(
-          "H1",
-          seo.h1Count ?? 0,
-          "etiquetas"
-        )}
-
-        ${metric(
-          "H2",
-          seo.h2Count ?? 0,
-          "etiquetas"
-        )}
-
-        ${metric(
-          "H3",
-          seo.h3Count ?? 0,
-          "etiquetas"
-        )}
-
-        ${metric(
-          "Contenido",
-          seo.wordCount ?? 0,
-          "palabras"
-        )}
-
-        ${metric(
-          "Imágenes",
-          seo.imageCount ?? 0,
-          "total"
-        )}
-
-        ${metric(
-          "Imágenes sin ALT",
-          seo.imagesWithoutAlt ?? 0,
-          "sin atributo ALT"
-        )}
-
-        ${metric(
-          "Enlaces internos",
-          seo.internalLinks ?? 0,
-          "enlaces"
-        )}
-
-        ${metric(
-          "Enlaces externos",
-          seo.externalLinks ?? 0,
-          "enlaces"
-        )}
-
-      </div>
-
-
-      <!-- TÉCNICO -->
-
-      <div class="section-title">
-
-        <div>
-
-          <span>
-            TECHNICAL
-          </span>
-
-          <h2>
-            Configuración técnica
-          </h2>
-
-        </div>
-
-      </div>
-
-
-      <div class="technical-grid">
-
-        ${technicalItem(
-          "HTTPS",
-          seo.hasHttps
-        )}
-
-        ${technicalItem(
-          "Viewport",
-          seo.hasViewport
-        )}
-
-        ${technicalItem(
-          "Canonical",
-          seo.hasCanonical
-        )}
-
-        ${technicalItem(
-          "Robots",
-          seo.hasRobots
-        )}
-
-        ${technicalItem(
-          "Favicon",
-          seo.hasFavicon
-        )}
-
-        ${technicalItem(
-          "Schema",
-          seo.hasSchema
-        )}
-
-        ${technicalItem(
-          "Open Graph",
-          seo.hasOpenGraph
-        )}
-
-        ${technicalItem(
-          "Twitter Card",
-          seo.hasTwitterCard
-        )}
-
-      </div>
-
-
-      <!-- CORRECTO -->
-
-      <div class="passed-card">
-
-        <div class="passed-header">
-
-          <span>
-            ✓
-          </span>
-
-          <div>
-
-            <strong>
-              Elementos correctamente configurados
-            </strong>
-
-            <p>
-              ${passed.length}
-              comprobaciones superadas
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="passed-list">
-
-          ${
-            passed.length
-              ? passed
-                  .map(
-                    item => `
-                      <div>
-                        ✓ ${escapeHtml(String(item))}
-                      </div>
-                    `
-                  )
-                  .join("")
-              : `
-                <div>
-                  No hay comprobaciones registradas.
                 </div>
-              `
-          }
+            `;
 
-        </div>
-
-      </div>
+        }
 
 
-    </div>
+        try {
 
-  `;
+            const response = await fetch(
+                WORKER_URL +
+                "?url=" +
+                encodeURIComponent(url)
+            );
+
+
+            const data = await response.json();
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.error ||
+                    "No se ha podido analizar la web."
+                );
+
+            }
+
+
+            if (!data || data.success === false) {
+
+                throw new Error(
+                    data?.error ||
+                    "No se ha podido analizar la web."
+                );
+
+            }
+
+
+            currentData = data;
+
+            currentMainUrl =
+                data.finalUrl ||
+                data.url ||
+                url;
+
+
+            renderResults(data);
+
+        } catch (error) {
+
+            console.error(
+                "RankPilot analyzer error:",
+                error
+            );
+
+
+            if (message) {
+
+                message.innerHTML = `
+                    <div class="rankpilot-error">
+                        <strong>
+                            No se ha podido analizar la web.
+                        </strong>
+                        <span>
+                            ${escapeHtml(
+                                error.message ||
+                                "Comprueba la URL e inténtalo de nuevo."
+                            )}
+                        </span>
+                    </div>
+                `;
+
+            }
+
+        }
+
+    });
 
 }
 
 
 /* =========================================================
-   COMPONENTES DE RESULTADOS
+   SCORE / CATEGORY HELPERS
 ========================================================= */
+
+function getCategoryScore(category) {
+
+    return clampScore(category);
+
+}
+
 
 function categoryCard(
-  name,
-  score,
-  description
+    title,
+    score,
+    description
 ) {
 
-  score =
-    Number(score || 0);
+    const numericScore =
+        getCategoryScore(score);
 
+    return `
 
-  const status =
-    score >= 80
-      ? "good"
-      : score >= 60
-      ? "warning"
-      : "bad";
+        <div class="score-card">
 
+            <div class="score-card-header">
 
-  return `
+                <div>
+                    <h4>
+                        ${escapeHtml(title)}
+                    </h4>
 
-    <div class="category-card">
+                    <p>
+                        ${escapeHtml(description || "")}
+                    </p>
+                </div>
 
-      <div class="category-top">
+                <div class="score-card-number">
+                    ${numericScore}
+                </div>
 
-        <div>
+            </div>
 
-          <strong>
-            ${escapeHtml(name)}
-          </strong>
+            <div class="score-card-bar">
 
-          <p>
-            ${escapeHtml(description)}
-          </p>
+                <span
+                    style="
+                        width:${numericScore}%;
+                    "
+                ></span>
+
+            </div>
+
+            <div class="score-card-status">
+                ${escapeHtml(
+                    getStatus(numericScore)
+                )}
+            </div>
 
         </div>
 
-
-        <span class="category-score ${status}">
-          ${score}
-        </span>
-
-      </div>
-
-
-      <div class="progress-bar">
-
-        <div
-          class="progress-fill ${status}"
-          style="width:${Math.max(
-            0,
-            Math.min(100, score)
-          )}%"
-        ></div>
-
-      </div>
-
-    </div>
-
-  `;
+    `;
 
 }
 
 
 function metric(
-  name,
-  value,
-  subtitle
+    label,
+    value,
+    status
 ) {
 
-  return `
+    return `
 
-    <div class="metric-card">
+        <div class="metric-item">
 
-      <span>
-        ${escapeHtml(name)}
-      </span>
+            <span class="metric-label">
+                ${escapeHtml(label)}
+            </span>
 
-      <strong>
-        ${escapeHtml(String(value ?? ""))}
-      </strong>
+            <strong class="metric-value">
+                ${escapeHtml(value)}
+            </strong>
 
-      <small>
-        ${escapeHtml(subtitle)}
-      </small>
+            ${
+                status
+                    ? `
+                        <span class="metric-status">
+                            ${escapeHtml(status)}
+                        </span>
+                    `
+                    : ""
+            }
 
-    </div>
+        </div>
 
-  `;
+    `;
 
 }
 
 
 function technicalItem(
-  name,
-  passed
+    label,
+    value,
+    good
 ) {
 
-  return `
+    let statusText = "No detectado";
+    let statusClass = "";
 
-    <div class="technical-item">
+    if (good === true) {
+        statusText = "Correcto";
+        statusClass = "good";
+    }
 
-      <span
-        class="${passed ? "tech-good" : "tech-bad"}"
-      >
-        ${passed ? "✓" : "!"}
-      </span>
+    if (good === false) {
+        statusText = "Revisar";
+        statusClass = "bad";
+    }
 
-      <strong>
-        ${escapeHtml(name)}
-      </strong>
+    return `
 
-      <span>
-        ${passed ? "Correcto" : "Revisar"}
-      </span>
+        <div class="technical-item">
 
-    </div>
+            <div>
+                <strong>
+                    ${escapeHtml(label)}
+                </strong>
 
-  `;
+                <span>
+                    ${escapeHtml(
+                        value || ""
+                    )}
+                </span>
+            </div>
+
+            <span class="
+                technical-status
+                ${statusClass}
+            ">
+                ${escapeHtml(statusText)}
+            </span>
+
+        </div>
+
+    `;
 
 }
 
 
-function showFix(button) {
+/* =========================================================
+   KEYWORDS
+========================================================= */
 
-  if (!button) return;
+function normalizeKeyword(keyword) {
 
-  const fix =
-    button.parentElement
-      ? button.parentElement.querySelector(
-          ".fix-content"
-        )
-      : null;
+    if (
+        keyword === null ||
+        keyword === undefined
+    ) {
+        return "";
+    }
 
 
-  if (fix) {
+    if (typeof keyword === "string") {
 
-    fix.classList.toggle(
-      "visible"
-    );
+        return keyword.trim();
 
-  }
+    }
+
+
+    if (
+        typeof keyword === "number"
+    ) {
+
+        return String(keyword);
+
+    }
+
+
+    if (
+        typeof keyword === "object"
+    ) {
+
+        const candidates = [
+            keyword.keyword,
+            keyword.term,
+            keyword.text,
+            keyword.name,
+            keyword.value,
+            keyword.query
+        ];
+
+
+        for (
+            const candidate
+            of candidates
+        ) {
+
+            if (
+                candidate !== null &&
+                candidate !== undefined
+            ) {
+
+                return String(candidate).trim();
+
+            }
+
+        }
+
+    }
+
+
+    return "";
+
+}
+
+
+function getKeywordCount(keyword) {
+
+    if (
+        keyword === null ||
+        keyword === undefined
+    ) {
+        return 0;
+    }
+
+
+    if (
+        typeof keyword === "number"
+    ) {
+        return keyword;
+    }
+
+
+    if (
+        typeof keyword === "object"
+    ) {
+
+        const values = [
+            keyword.count,
+            keyword.frequency,
+            keyword.occurrences,
+            keyword.total
+        ];
+
+
+        for (
+            const value
+            of values
+        ) {
+
+            if (
+                typeof value === "number"
+            ) {
+                return value;
+            }
+
+        }
+
+    }
+
+
+    return 1;
+
+}
+
+
+function getKeywordTypeLabel(keyword) {
+
+    if (
+        keyword &&
+        typeof keyword === "object"
+    ) {
+
+        if (keyword.type) {
+
+            return String(
+                keyword.type
+            );
+
+        }
+
+    }
+
+
+    return "Keyword";
+
+}
+
+
+function renderKeywordRows(keywords) {
+
+    if (!Array.isArray(keywords)) {
+        return "";
+    }
+
+
+    return keywords
+        .slice(0, 20)
+        .map(function(keyword) {
+
+            const text =
+                normalizeKeyword(keyword);
+
+            if (!text) {
+                return "";
+            }
+
+
+            const count =
+                getKeywordCount(keyword);
+
+
+            const type =
+                getKeywordTypeLabel(keyword);
+
+
+            return `
+
+                <div class="keyword-row">
+
+                    <div class="keyword-name">
+                        ${escapeHtml(text)}
+                    </div>
+
+                    <div class="keyword-count">
+                        ${escapeHtml(count)}
+                    </div>
+
+                    <div class="keyword-type">
+                        ${escapeHtml(type)}
+                    </div>
+
+                </div>
+
+            `;
+
+        })
+        .join("");
 
 }
 
@@ -1030,236 +673,195 @@ function showFix(button) {
    SEO ACTION PLAN
 ========================================================= */
 
-function renderActionPlan(seo) {
+function buildActionPlan(data) {
 
-  const plan =
-    buildActionPlan(seo);
-
-
-  if (!plan.length) {
-    return "";
-  }
+    const seo =
+        data?.seo ||
+        data?.analysis ||
+        data ||
+        {};
 
 
-  return `
-
-    <div class="section-title">
-
-      <div>
-
-        <span>
-          ACTION PLAN
-        </span>
-
-        <h2>
-          Plan de acción SEO
-        </h2>
-
-      </div>
-
-    </div>
+    const actions = [];
 
 
-    <div class="action-plan">
+    const technical =
+        getCategoryScore(
+            seo.technical ||
+            data.technicalScore ||
+            0
+        );
 
-      ${plan
-        .map(
-          (item, index) =>
-            renderActionCard(
-              item,
-              index
-            )
-        )
-        .join("")}
 
-    </div>
+    const onPage =
+        getCategoryScore(
+            seo.onPage ||
+            data.onPageScore ||
+            0
+        );
 
-  `;
+
+    const content =
+        getCategoryScore(
+            seo.content ||
+            data.contentScore ||
+            0
+        );
+
+
+    const indexability =
+        getCategoryScore(
+            seo.indexability ||
+            data.indexabilityScore ||
+            0
+        );
+
+
+    if (technical < 75) {
+
+        actions.push({
+            priority: "Alta",
+            title: "Mejorar el SEO técnico",
+            text:
+                "Revisa HTTPS, canonical, viewport, robots.txt, schema y otros elementos técnicos."
+        });
+
+    }
+
+
+    if (onPage < 75) {
+
+        actions.push({
+            priority: "Alta",
+            title: "Optimizar elementos on-page",
+            text:
+                "Trabaja títulos, meta description, encabezados y estructura de la página."
+        });
+
+    }
+
+
+    if (content < 75) {
+
+        actions.push({
+            priority: "Media",
+            title: "Mejorar el contenido",
+            text:
+                "Aumenta la profundidad y relevancia del contenido respecto a la intención de búsqueda."
+        });
+
+    }
+
+
+    if (indexability < 75) {
+
+        actions.push({
+            priority: "Alta",
+            title: "Revisar indexabilidad",
+            text:
+                "Comprueba canonical, robots y las señales que pueden afectar a la indexación."
+        });
+
+    }
+
+
+    if (!actions.length) {
+
+        actions.push({
+            priority: "Baja",
+            title: "Mantener y optimizar",
+            text:
+                "La base SEO es sólida. Continúa trabajando contenido, keywords y autoridad."
+        });
+
+    }
+
+
+    return actions;
 
 }
 
 
-function buildActionPlan(seo) {
+function renderActionPlan(data) {
 
-  const plan = [];
+    const actions =
+        buildActionPlan(data);
 
 
-  const issues =
-    Array.isArray(seo.issues)
-      ? seo.issues
-      : [];
+    return `
 
+        <section class="rankpilot-section">
 
-  const warnings =
-    Array.isArray(seo.warnings)
-      ? seo.warnings
-      : [];
+            <div class="section-heading">
 
+                <div>
 
-  issues.forEach(
-    (issue, index) => {
+                    <span class="section-eyebrow">
+                        SEO ACTION PLAN
+                    </span>
 
-      plan.push({
+                    <h3>
+                        Qué deberías mejorar
+                    </h3>
 
-        priority: "Alta",
+                </div>
 
-        type: "critical",
+            </div>
 
-        title: String(issue),
 
-        description:
-          "Soluciona este problema antes de trabajar en optimizaciones secundarias.",
+            <div class="action-plan-list">
 
-        order: index
+                ${
+                    actions
+                        .map(function(action, index) {
 
-      });
+                            return `
 
-    }
-  );
+                                <div class="action-plan-item">
 
+                                    <div class="action-plan-number">
+                                        ${index + 1}
+                                    </div>
 
-  warnings.forEach(
-    (warning, index) => {
+                                    <div class="action-plan-content">
 
-      plan.push({
+                                        <div class="action-plan-top">
 
-        priority: "Media",
+                                            <strong>
+                                                ${escapeHtml(
+                                                    action.title
+                                                )}
+                                            </strong>
 
-        type: "warning",
+                                            <span>
+                                                ${escapeHtml(
+                                                    action.priority
+                                                )}
+                                            </span>
 
-        title: String(warning),
+                                        </div>
 
-        description:
-          "Optimiza este elemento para mejorar el rendimiento SEO.",
+                                        <p>
+                                            ${escapeHtml(
+                                                action.text
+                                            )}
+                                        </p>
 
-        order:
-          issues.length + index
+                                    </div>
 
-      });
+                                </div>
 
-    }
-  );
+                            `;
 
+                        })
+                        .join("")
+                }
 
-  if (
-    Number(seo.imagesWithoutAlt || 0) > 0
-  ) {
+            </div>
 
-    plan.push({
+        </section>
 
-      priority: "Media",
-
-      type: "warning",
-
-      title:
-        "Optimizar imágenes sin atributo ALT",
-
-      description:
-        `Hay ${seo.imagesWithoutAlt} imágenes sin ALT.`,
-
-      order: 100
-
-    });
-
-  }
-
-
-  if (
-    Number(seo.internalLinks || 0) === 0
-  ) {
-
-    plan.push({
-
-      priority: "Media",
-
-      type: "warning",
-
-      title:
-        "Añadir enlaces internos",
-
-      description:
-        "La página no contiene enlaces internos detectados.",
-
-      order: 101
-
-    });
-
-  }
-
-
-  if (
-    Number(seo.h1Count || 0) === 0
-  ) {
-
-    plan.push({
-
-      priority: "Alta",
-
-      type: "critical",
-
-      title:
-        "Añadir un H1",
-
-      description:
-        "La página necesita un encabezado principal.",
-
-      order: 102
-
-    });
-
-  }
-
-
-  return plan
-    .sort(
-      (a, b) =>
-        a.order - b.order
-    )
-    .slice(0, 10);
-
-}
-
-
-function renderActionCard(
-  item,
-  index
-) {
-
-  return `
-
-    <div class="action-card">
-
-      <div class="action-number">
-        ${index + 1}
-      </div>
-
-
-      <div class="action-content">
-
-        <div class="action-header">
-
-          <strong>
-            ${escapeHtml(item.title)}
-          </strong>
-
-          <span
-            class="action-priority ${item.type}"
-          >
-            ${escapeHtml(item.priority)}
-          </span>
-
-        </div>
-
-
-        <p>
-          ${escapeHtml(item.description)}
-        </p>
-
-      </div>
-
-    </div>
-
-  `;
+    `;
 
 }
 
@@ -1268,139 +870,118 @@ function renderActionCard(
    KEYWORD INTELLIGENCE
 ========================================================= */
 
-function renderKeywordIntelligence(seo) {
+function renderKeywordIntelligence(data) {
 
-  const primary =
-    normalizeKeyword(
-      seo.primaryKeyword
-    );
-
-
-  const keywords =
-    Array.isArray(seo.keywords)
-      ? seo.keywords
-      : Array.isArray(
-          seo.keywordIntelligence
-        )
-      ? seo.keywordIntelligence
-      : [];
+    const seo =
+        data?.seo ||
+        data?.analysis ||
+        {};
 
 
-  if (
-    !primary &&
-    !keywords.length
-  ) {
-
-    return "";
-
-  }
+    let primary =
+        seo.primaryKeyword ||
+        data.primaryKeyword ||
+        "";
 
 
-  return `
-
-    <div class="section-title">
-
-      <div>
-
-        <span>
-          KEYWORD INTELLIGENCE
-        </span>
-
-        <h2>
-          Keywords detectadas
-        </h2>
-
-      </div>
-
-    </div>
+    primary =
+        normalizeKeyword(primary);
 
 
-    <div class="keyword-intelligence-card">
-
-      <div class="primary-keyword">
-
-        <span>
-          KEYWORD PRINCIPAL
-        </span>
-
-        <strong>
-          ${escapeHtml(
-            primary ||
-            "No detectada"
-          )}
-        </strong>
-
-      </div>
+    let keywords =
+        seo.keywords ||
+        seo.keywordIntelligence ||
+        data.keywords ||
+        data.keywordIntelligence ||
+        [];
 
 
-      ${
-        keywords.length
-          ? `
+    if (
+        !Array.isArray(keywords)
+    ) {
 
-            <div class="keyword-list">
+        keywords = [];
 
-              ${keywords
-                .slice(0, 20)
-                .map(
-                  keyword => {
-
-                    const text =
-                      normalizeKeyword(
-                        keyword
-                      );
+    }
 
 
-                    const count =
-                      getKeywordCount(
-                        keyword
-                      );
+    return `
 
+        <section class="rankpilot-section">
 
-                    if (!text) {
-                      return "";
-                    }
+            <div class="section-heading">
 
+                <div>
 
-                    return `
+                    <span class="section-eyebrow">
+                        KEYWORD INTELLIGENCE
+                    </span>
 
-                      <div class="keyword-row">
+                    <h3>
+                        Inteligencia de keywords
+                    </h3>
 
-                        <span>
-                          ${escapeHtml(text)}
-                        </span>
-
-                        <span>
-                          ${getKeywordTypeLabel(
-                            text,
-                            primary
-                          )}
-                        </span>
-
-                        <strong>
-                          ${escapeHtml(
-                            String(
-                              count || "-"
-                            )
-                          )}
-                        </strong>
-
-                      </div>
-
-                    `;
-
-                  }
-                )
-                .join("")}
+                </div>
 
             </div>
 
-          `
-          : ""
-      }
 
-    </div>
+            ${
+                primary
+                    ? `
+                        <div class="primary-keyword-card">
 
-  `;
+                            <span>
+                                Keyword principal
+                            </span>
+
+                            <strong>
+                                ${escapeHtml(primary)}
+                            </strong>
+
+                        </div>
+                    `
+                    : `
+                        <div class="rankpilot-info-box">
+                            No se ha detectado una keyword principal.
+                        </div>
+                    `
+            }
+
+
+            ${
+                keywords.length
+                    ? `
+                        <div class="keyword-table">
+
+                            <div class="keyword-row keyword-header">
+
+                                <div>
+                                    Keyword
+                                </div>
+
+                                <div>
+                                    Frecuencia
+                                </div>
+
+                                <div>
+                                    Tipo
+                                </div>
+
+                            </div>
+
+                            ${renderKeywordRows(
+                                keywords
+                            )}
+
+                        </div>
+                    `
+                    : ""
+            }
+
+        </section>
+
+    `;
 
 }
 
@@ -1409,509 +990,1273 @@ function renderKeywordIntelligence(seo) {
    KEYWORD RECOMMENDATIONS
 ========================================================= */
 
-function renderKeywordRecommendations(seo) {
+function renderKeywordRecommendations(data) {
 
-  const recommendations =
-    Array.isArray(
-      seo.keywordRecommendations
-    )
-      ? seo.keywordRecommendations
-      : [];
+    const seo =
+        data?.seo ||
+        data?.analysis ||
+        {};
 
 
-  if (!recommendations.length) {
-    return "";
-  }
+    let recommendations =
+        seo.keywordRecommendations ||
+        data.keywordRecommendations ||
+        [];
 
 
-  return `
+    if (
+        !Array.isArray(recommendations)
+    ) {
 
-    <div class="section-title">
+        recommendations = [];
 
-      <div>
-
-        <span>
-          KEYWORD OPPORTUNITIES
-        </span>
-
-        <h2>
-          Recomendaciones de keywords
-        </h2>
-
-      </div>
-
-    </div>
+    }
 
 
-    <div class="recommendations-card">
+    if (!recommendations.length) {
 
-      ${recommendations
-        .slice(0, 15)
-        .map(
-          (item, index) => {
+        return "";
 
-            const keyword =
-              normalizeKeyword(
-                item
-              );
+    }
 
 
-            if (!keyword) {
-              return "";
-            }
+    return `
+
+        <section class="rankpilot-section">
+
+            <div class="section-heading">
+
+                <div>
+
+                    <span class="section-eyebrow">
+                        KEYWORD RECOMMENDATIONS
+                    </span>
+
+                    <h3>
+                        Keywords recomendadas
+                    </h3>
+
+                </div>
+
+            </div>
 
 
-            return `
+            <div class="keyword-recommendations">
 
-              <div class="recommendation-row">
+                ${
+                    recommendations
+                        .slice(0, 15)
+                        .map(function(item) {
 
-                <span>
-                  ${index + 1}
-                </span>
+                            const keyword =
+                                normalizeKeyword(item);
 
-                <strong>
-                  ${escapeHtml(keyword)}
-                </strong>
 
-              </div>
+                            if (!keyword) {
+                                return "";
+                            }
 
-            `;
 
-          }
-        )
-        .join("")}
+                            return `
 
-    </div>
+                                <span class="keyword-chip">
+                                    ${escapeHtml(keyword)}
+                                </span>
 
-  `;
+                            `;
+
+                        })
+                        .join("")
+                }
+
+            </div>
+
+        </section>
+
+    `;
 
 }
 
 
 /* =========================================================
-   COMPETIDORES
+   ISSUES
 ========================================================= */
 
-function renderCompetitorCTA() {
+function normalizeList(value) {
 
-  return `
-
-    <div class="competitor-cta">
-
-      <div>
-
-        <span>
-          COMPETITOR INTELLIGENCE
-        </span>
-
-        <h2>
-          Compara tu web con tus competidores
-        </h2>
-
-        <p>
-          Descubre diferencias SEO y oportunidades
-          frente a otras páginas.
-        </p>
-
-      </div>
+    if (!value) {
+        return [];
+    }
 
 
-      <button
-        onclick="openCompetitorForm()"
-        class="competitor-button"
-      >
-        Comparar competidores →
-      </button>
+    if (Array.isArray(value)) {
+        return value;
+    }
 
-    </div>
 
-  `;
+    return [value];
 
 }
 
 
-function openCompetitorForm() {
+function renderIssues(data) {
 
-  const existing =
-    document.getElementById(
-      "competitorForm"
-    );
-
-
-  if (existing) {
-
-    existing.remove();
-
-    return;
-
-  }
+    const seo =
+        data?.seo ||
+        data?.analysis ||
+        data ||
+        {};
 
 
-  const container =
-    document.createElement(
-      "div"
-    );
+    const problems =
+        normalizeList(
+            seo.problems ||
+            seo.issues ||
+            data.problems ||
+            data.issues
+        );
 
 
-  container.id =
-    "competitorForm";
+    const warnings =
+        normalizeList(
+            seo.warnings ||
+            data.warnings
+        );
 
 
-  container.className =
-    "competitor-form-wrapper";
+    const passed =
+        normalizeList(
+            seo.passed ||
+            data.passed
+        );
 
 
-  container.innerHTML = `
+    return `
 
-    <div class="competitor-form-card">
+        <section class="rankpilot-section">
 
-      <h3>
-        Analizar competidores
-      </h3>
+            <div class="issues-grid">
 
-      <p>
-        Puedes introducir hasta 3 competidores.
-      </p>
+                <div class="issue-column">
 
+                    <h4>
+                        Problemas
+                    </h4>
 
-      <input
-        id="competitor1"
-        class="competitor-input"
-        placeholder="https://competidor1.com"
-      />
+                    ${
+                        problems.length
+                            ? problems
+                                .map(function(item) {
 
-
-      <input
-        id="competitor2"
-        class="competitor-input"
-        placeholder="https://competidor2.com"
-      />
-
-
-      <input
-        id="competitor3"
-        class="competitor-input"
-        placeholder="https://competidor3.com"
-      />
+                                    const text =
+                                        typeof item === "object"
+                                            ? (
+                                                item.message ||
+                                                item.text ||
+                                                item.title ||
+                                                JSON.stringify(item)
+                                            )
+                                            : item;
 
 
-      <div class="competitor-form-actions">
+                                    return `
+
+                                        <div class="issue-item">
+
+                                            <span class="issue-icon">
+                                                !
+                                            </span>
+
+                                            <span>
+                                                ${escapeHtml(text)}
+                                            </span>
+
+                                        </div>
+
+                                    `;
+
+                                })
+                                .join("")
+                            : `
+                                <div class="empty-state">
+                                    No se han detectado problemas importantes.
+                                </div>
+                            `
+                    }
+
+                </div>
+
+
+                <div class="issue-column">
+
+                    <h4>
+                        Advertencias
+                    </h4>
+
+                    ${
+                        warnings.length
+                            ? warnings
+                                .map(function(item) {
+
+                                    const text =
+                                        typeof item === "object"
+                                            ? (
+                                                item.message ||
+                                                item.text ||
+                                                item.title ||
+                                                JSON.stringify(item)
+                                            )
+                                            : item;
+
+
+                                    return `
+
+                                        <div class="warning-item">
+
+                                            <span class="warning-icon">
+                                                !
+                                            </span>
+
+                                            <span>
+                                                ${escapeHtml(text)}
+                                            </span>
+
+                                        </div>
+
+                                    `;
+
+                                })
+                                .join("")
+                            : `
+                                <div class="empty-state">
+                                    No se han detectado advertencias.
+                                </div>
+                            `
+                    }
+
+                </div>
+
+
+                ${
+                    passed.length
+                        ? `
+                            <div class="issue-column">
+
+                                <h4>
+                                    Correcto
+                                </h4>
+
+                                ${
+                                    passed
+                                        .slice(0, 15)
+                                        .map(function(item) {
+
+                                            const text =
+                                                typeof item === "object"
+                                                    ? (
+                                                        item.message ||
+                                                        item.text ||
+                                                        item.title ||
+                                                        JSON.stringify(item)
+                                                    )
+                                                    : item;
+
+
+                                            return `
+
+                                                <div class="passed-item">
+
+                                                    <span>
+                                                        ✓
+                                                    </span>
+
+                                                    <span>
+                                                        ${escapeHtml(text)}
+                                                    </span>
+
+                                                </div>
+
+                                            `;
+
+                                        })
+                                        .join("")
+                                }
+
+                            </div>
+                        `
+                        : ""
+                }
+
+            </div>
+
+        </section>
+
+    `;
+
+}
+
+
+/* =========================================================
+   MAIN RESULTS
+========================================================= */
+
+function renderResults(
+    data,
+    options = {}
+) {
+
+    const seo =
+        data?.seo ||
+        data?.analysis ||
+        data ||
+        {};
+
+
+    const score =
+        clampScore(
+            data.score ||
+            seo.score ||
+            data.totalScore ||
+            0
+        );
+
+
+    const technical =
+        getCategoryScore(
+            seo.technical ||
+            data.technicalScore ||
+            0
+        );
+
+
+    const onPage =
+        getCategoryScore(
+            seo.onPage ||
+            data.onPageScore ||
+            0
+        );
+
+
+    const content =
+        getCategoryScore(
+            seo.content ||
+            data.contentScore ||
+            0
+        );
+
+
+    const indexability =
+        getCategoryScore(
+            seo.indexability ||
+            data.indexabilityScore ||
+            0
+        );
+
+
+    const title =
+        seo.title ||
+        data.title ||
+        "";
+
+
+    const description =
+        seo.description ||
+        data.description ||
+        "";
+
+
+    const h1 =
+        seo.h1 ||
+        data.h1 ||
+        data.h1Count ||
+        0;
+
+
+    const h2 =
+        seo.h2 ||
+        data.h2 ||
+        data.h2Count ||
+        0;
+
+
+    const h3 =
+        seo.h3 ||
+        data.h3 ||
+        data.h3Count ||
+        0;
+
+
+    const images =
+        seo.images ||
+        data.images ||
+        data.imageCount ||
+        0;
+
+
+    const imagesWithoutAlt =
+        seo.imagesWithoutAlt ||
+        data.imagesWithoutAlt ||
+        data.imagesMissingAlt ||
+        0;
+
+
+    const internalLinks =
+        seo.internalLinks ||
+        data.internalLinks ||
+        0;
+
+
+    const externalLinks =
+        seo.externalLinks ||
+        data.externalLinks ||
+        0;
+
+
+    const contentWords =
+        seo.contentWords ||
+        data.contentWords ||
+        data.wordCount ||
+        0;
+
+
+    const https =
+        normalizeBoolean(
+            seo.https ??
+            data.https
+        );
+
+
+    const viewport =
+        normalizeBoolean(
+            seo.viewport ??
+            data.viewport
+        );
+
+
+    const canonical =
+        seo.canonical ||
+        data.canonical ||
+        "";
+
+
+    const robots =
+        seo.robots ||
+        data.robots ||
+        "";
+
+
+    const favicon =
+        normalizeBoolean(
+            seo.favicon ??
+            data.favicon
+        );
+
+
+    const schema =
+        normalizeBoolean(
+            seo.schema ??
+            data.schema
+        );
+
+
+    const og =
+        normalizeBoolean(
+            seo.openGraph ??
+            seo.og ??
+            data.openGraph ??
+            data.og
+        );
+
+
+    const twitter =
+        normalizeBoolean(
+            seo.twitterCard ??
+            seo.twitter ??
+            data.twitterCard ??
+            data.twitter
+        );
+
+
+    const hostname =
+        getHostname(
+            data.finalUrl ||
+            data.url ||
+            currentMainUrl
+        );
+
+
+    const reportButton = `
 
         <button
-          onclick="runCompetitorAnalysis()"
-          class="competitor-button"
+            type="button"
+            class="btn btn-secondary"
+            onclick="generateSEOReport()"
         >
-          Analizar competidores
+            Generar informe
         </button>
 
-      </div>
+    `;
 
 
-      <div
-        id="competitorMessage"
-        class="competitor-message"
-      ></div>
+    if (message) {
 
-    </div>
+        message.innerHTML = `
 
-  `;
+            <div
+                id="rankpilotResults"
+                class="rankpilot-results"
+            >
+
+                <div class="results-header">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            SEO ANALYSIS
+                        </span>
+
+                        <h2>
+                            ${escapeHtml(hostname)}
+                        </h2>
+
+                        <p>
+                            ${escapeHtml(
+                                data.finalUrl ||
+                                data.url ||
+                                currentMainUrl
+                            )}
+                        </p>
+
+                    </div>
+
+                    <div>
+                        ${reportButton}
+                    </div>
+
+                </div>
 
 
-  message.appendChild(
-    container
-  );
+                <section class="score-overview">
+
+                    <div class="score-ring-container">
+
+                        <div
+                            class="score-ring"
+                            style="
+                                --score:${score};
+                            "
+                        >
+
+                            <div class="score-ring-inner">
+
+                                <strong>
+                                    ${score}
+                                </strong>
+
+                                <span>
+                                    /100
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                        <div class="score-label">
+                            ${escapeHtml(
+                                getLabel(score)
+                            )}
+                        </div>
+
+                    </div>
 
 
-  container.scrollIntoView({
+                    <div class="score-overview-content">
 
-    behavior: "smooth",
+                        <span class="section-eyebrow">
+                            SEO SCORE
+                        </span>
 
-    block: "center"
+                        <h3>
+                            ${escapeHtml(
+                                getStatus(score)
+                            )}
+                        </h3>
 
-  });
+                        <p>
+                            RankPilot ha analizado los principales
+                            factores SEO de esta página.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+                <section class="category-scores">
+
+                    ${categoryCard(
+                        "SEO técnico",
+                        technical,
+                        "Infraestructura y configuración"
+                    )}
+
+                    ${categoryCard(
+                        "On-page",
+                        onPage,
+                        "Elementos visibles y metadata"
+                    )}
+
+                    ${categoryCard(
+                        "Contenido",
+                        content,
+                        "Calidad y profundidad"
+                    )}
+
+                    ${categoryCard(
+                        "Indexabilidad",
+                        indexability,
+                        "Capacidad de ser rastreada e indexada"
+                    )}
+
+                </section>
+
+
+                ${renderActionPlan(data)}
+
+
+                ${renderKeywordIntelligence(data)}
+
+
+                ${renderKeywordRecommendations(data)}
+
+
+                <section class="rankpilot-section">
+
+                    <div class="section-heading">
+
+                        <div>
+
+                            <span class="section-eyebrow">
+                                COMPETITOR INTELLIGENCE
+                            </span>
+
+                            <h3>
+                                Compara tu web
+                            </h3>
+
+                            <p>
+                                Analiza hasta 3 competidores
+                                para detectar oportunidades.
+                            </p>
+
+                        </div>
+
+                        <button
+                            type="button"
+                            class="btn btn-secondary"
+                            onclick="openCompetitorForm()"
+                        >
+                            Comparar competidores
+                        </button>
+
+                    </div>
+
+                    <div
+                        id="competitorContainer"
+                    ></div>
+
+                </section>
+
+
+                ${renderIssues(data)}
+
+
+                <section class="rankpilot-section">
+
+                    <div class="section-heading">
+
+                        <div>
+
+                            <span class="section-eyebrow">
+                                ON-PAGE
+                            </span>
+
+                            <h3>
+                                Métricas de la página
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="metrics-grid">
+
+                        ${metric(
+                            "Title",
+                            title || "No encontrado"
+                        )}
+
+                        ${metric(
+                            "Meta description",
+                            description
+                                ? "Detectada"
+                                : "No encontrada"
+                        )}
+
+                        ${metric(
+                            "H1",
+                            h1
+                        )}
+
+                        ${metric(
+                            "H2",
+                            h2
+                        )}
+
+                        ${metric(
+                            "H3",
+                            h3
+                        )}
+
+                        ${metric(
+                            "Palabras",
+                            contentWords
+                        )}
+
+                        ${metric(
+                            "Imágenes",
+                            images
+                        )}
+
+                        ${metric(
+                            "Imágenes sin ALT",
+                            imagesWithoutAlt
+                        )}
+
+                        ${metric(
+                            "Enlaces internos",
+                            internalLinks
+                        )}
+
+                        ${metric(
+                            "Enlaces externos",
+                            externalLinks
+                        )}
+
+                    </div>
+
+                </section>
+
+
+                <section class="rankpilot-section">
+
+                    <div class="section-heading">
+
+                        <div>
+
+                            <span class="section-eyebrow">
+                                TECHNICAL SEO
+                            </span>
+
+                            <h3>
+                                SEO técnico
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="technical-grid">
+
+                        ${technicalItem(
+                            "HTTPS",
+                            https
+                                ? "Activo"
+                                : "No detectado",
+                            https
+                        )}
+
+                        ${technicalItem(
+                            "Viewport",
+                            viewport
+                                ? "Configurado"
+                                : "No detectado",
+                            viewport
+                        )}
+
+                        ${technicalItem(
+                            "Canonical",
+                            canonical
+                                ? canonical
+                                : "No detectado",
+                            !!canonical
+                        )}
+
+                        ${technicalItem(
+                            "Robots",
+                            robots
+                                ? "Detectado"
+                                : "No detectado",
+                            !!robots
+                        )}
+
+                        ${technicalItem(
+                            "Favicon",
+                            favicon
+                                ? "Detectado"
+                                : "No detectado",
+                            favicon
+                        )}
+
+                        ${technicalItem(
+                            "Schema",
+                            schema
+                                ? "Detectado"
+                                : "No detectado",
+                            schema
+                        )}
+
+                        ${technicalItem(
+                            "Open Graph",
+                            og
+                                ? "Detectado"
+                                : "No detectado",
+                            og
+                        )}
+
+                        ${technicalItem(
+                            "Twitter Card",
+                            twitter
+                                ? "Detectado"
+                                : "No detectado",
+                            twitter
+                        )}
+
+                    </div>
+
+                </section>
+
+
+                <section class="rankpilot-save-analysis">
+
+                    <div>
+
+                        <strong>
+                            ¿Quieres guardar este análisis?
+                        </strong>
+
+                        <p>
+                            Crea un proyecto desde tu Dashboard
+                            para conservar el historial SEO.
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="openRankPilotDashboard('projects')"
+                    >
+                        Gestionar proyectos
+                    </button>
+
+                </section>
+
+            </div>
+
+        `;
+
+    }
+
+
+    /*
+     * Guardar automáticamente si existe un proyecto
+     * asociado a esta URL.
+     */
+
+    if (
+        options.save !== false
+    ) {
+
+        rankPilotAutoSaveAnalysis(data);
+
+    }
+
+}
+
+
+/* =========================================================
+   FIX / DETAILS
+========================================================= */
+
+function showFix(button) {
+
+    const parent =
+        button.closest(".fix-item");
+
+
+    if (!parent) {
+        return;
+    }
+
+
+    const content =
+        parent.querySelector(".fix-content");
+
+
+    if (!content) {
+        return;
+    }
+
+
+    content.classList.toggle("open");
+
+}
+
+
+/* =========================================================
+   COMPETITOR ANALYSIS
+========================================================= */
+
+function openCompetitorForm() {
+
+    const container =
+        document.getElementById(
+            "competitorContainer"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <div class="competitor-form">
+
+            <div class="competitor-input">
+
+                <label>
+                    Competidor 1
+                </label>
+
+                <input
+                    id="competitor1"
+                    type="text"
+                    placeholder="https://competidor.com"
+                >
+
+            </div>
+
+
+            <div class="competitor-input">
+
+                <label>
+                    Competidor 2
+                </label>
+
+                <input
+                    id="competitor2"
+                    type="text"
+                    placeholder="https://competidor.com"
+                >
+
+            </div>
+
+
+            <div class="competitor-input">
+
+                <label>
+                    Competidor 3
+                </label>
+
+                <input
+                    id="competitor3"
+                    type="text"
+                    placeholder="https://competidor.com"
+                >
+
+            </div>
+
+
+            <button
+                type="button"
+                class="btn btn-primary"
+                onclick="runCompetitorAnalysis()"
+            >
+                Analizar competidores
+            </button>
+
+        </div>
+
+    `;
 
 }
 
 
 async function runCompetitorAnalysis() {
 
-  if (!currentMainUrl) {
-    return;
-  }
+    const container =
+        document.getElementById(
+            "competitorContainer"
+        );
 
 
-  const inputs = [
-
-    document.getElementById(
-      "competitor1"
-    ),
-
-    document.getElementById(
-      "competitor2"
-    ),
-
-    document.getElementById(
-      "competitor3"
-    )
-
-  ];
+    if (!container) {
+        return;
+    }
 
 
-  const competitors =
-    inputs
-      .map(
-        element =>
-          element
-            ? element.value.trim()
-            : ""
-      )
-      .filter(Boolean);
+    const competitors = [
+        document.getElementById(
+            "competitor1"
+        )?.value.trim(),
+
+        document.getElementById(
+            "competitor2"
+        )?.value.trim(),
+
+        document.getElementById(
+            "competitor3"
+        )?.value.trim()
+    ]
+        .filter(Boolean)
+        .map(normalizeUrl)
+        .filter(Boolean);
 
 
-  if (!competitors.length) {
+    if (!competitors.length) {
 
-    alert(
-      "Introduce al menos un competidor."
-    );
+        container.innerHTML = `
+            <div class="rankpilot-error">
+                Introduce al menos un competidor.
+            </div>
+        `;
 
-    return;
-
-  }
-
-
-  const competitorMessage =
-    document.getElementById(
-      "competitorMessage"
-    );
-
-
-  if (competitorMessage) {
-
-    competitorMessage.innerHTML = `
-
-      <div class="seo-loading">
-
-        <div class="loading-spinner"></div>
-
-        <p>
-          Analizando competidores...
-        </p>
-
-      </div>
-
-    `;
-
-  }
-
-
-  try {
-
-    const params =
-      new URLSearchParams();
-
-
-    params.set(
-      "url",
-      currentMainUrl
-    );
-
-
-    params.set(
-      "competitors",
-      competitors.join(",")
-    );
-
-
-    const response =
-      await fetch(
-        `${WORKER_URL}?${params.toString()}`
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (
-      !response.ok ||
-      !data.success
-    ) {
-
-      throw new Error(
-        data.error ||
-        "No se pudieron analizar los competidores."
-      );
+        return;
 
     }
 
 
-    currentData = {
+    container.innerHTML = `
 
-      ...currentData,
+        <div class="rankpilot-loading">
 
-      competitorAnalysis:
-        data.competitorAnalysis ||
-        data.competitors ||
-        []
+            <div class="rankpilot-spinner"></div>
 
-    };
+            <div>
+                <strong>
+                    Analizando competidores...
+                </strong>
 
-
-    renderCompetitorAnalysis(
-      currentData.competitorAnalysis
-    );
-
-
-  } catch (error) {
-
-    console.error(error);
-
-
-    if (competitorMessage) {
-
-      competitorMessage.innerHTML = `
-
-        <div class="seo-error">
-
-          ❌ ${escapeHtml(
-            error.message
-          )}
+                <span>
+                    Esto puede tardar unos segundos.
+                </span>
+            </div>
 
         </div>
 
-      `;
+    `;
+
+
+    try {
+
+        const params =
+            new URLSearchParams();
+
+
+        params.set(
+            "url",
+            currentMainUrl
+        );
+
+
+        params.set(
+            "competitors",
+            competitors.join(",")
+        );
+
+
+        const response =
+            await fetch(
+                WORKER_URL +
+                "?" +
+                params.toString()
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data?.error ||
+                "No se pudo realizar el análisis."
+            );
+
+        }
+
+
+        const competitorAnalysis =
+            data.competitorAnalysis ||
+            data.competitors ||
+            data;
+
+
+        if (currentData) {
+
+            currentData.competitorAnalysis =
+                competitorAnalysis;
+
+        }
+
+
+        renderCompetitorResults(
+            competitorAnalysis
+        );
+
+
+        rankPilotAutoSaveAnalysis(
+            currentData
+        );
+
+
+    } catch (error) {
+
+        console.error(error);
+
+
+        container.innerHTML = `
+
+            <div class="rankpilot-error">
+
+                ${escapeHtml(
+                    error.message ||
+                    "No se pudo analizar los competidores."
+                )}
+
+            </div>
+
+        `;
 
     }
-
-  }
 
 }
 
 
-function renderCompetitorAnalysis(
-  competitors
-) {
+function renderCompetitorResults(data) {
 
-  if (
-    !Array.isArray(
-      competitors
-    )
-  ) {
-
-    return;
-
-  }
+    const container =
+        document.getElementById(
+            "competitorContainer"
+        );
 
 
-  const old =
-    document.getElementById(
-      "competitorResults"
-    );
+    if (!container) {
+        return;
+    }
 
 
-  if (old) {
-    old.remove();
-  }
+    let competitors = data;
 
 
-  const wrapper =
-    document.createElement(
-      "div"
-    );
+    if (
+        data &&
+        !Array.isArray(data)
+    ) {
+
+        competitors =
+            data.competitors ||
+            data.results ||
+            data.data ||
+            [];
+
+    }
 
 
-  wrapper.id =
-    "competitorResults";
+    if (!Array.isArray(competitors)) {
+        competitors = [];
+    }
 
 
-  wrapper.className =
-    "competitor-results";
+    container.innerHTML = `
+
+        <div class="competitor-results">
+
+            ${
+                competitors
+                    .map(function(item) {
+
+                        if (!item) {
+                            return "";
+                        }
 
 
-  wrapper.innerHTML = `
-
-    <div class="section-title">
-
-      <div>
-
-        <span>
-          COMPETITOR ANALYSIS
-        </span>
-
-        <h2>
-          Comparación SEO
-        </h2>
-
-      </div>
-
-    </div>
+                        const url =
+                            item.url ||
+                            item.finalUrl ||
+                            "";
 
 
-    <div class="competitor-results-grid">
-
-      ${competitors
-        .map(
-          (competitor, index) => {
-
-            const name =
-              competitor.name ||
-              competitor.domain ||
-              competitor.url ||
-              `Competidor ${index + 1}`;
+                        const score =
+                            clampScore(
+                                item.score ||
+                                item.seoScore ||
+                                item.totalScore ||
+                                0
+                            );
 
 
-            const score =
-              competitor.score ??
-              competitor.seoScore ??
-              "-";
+                        return `
 
+                            <div class="competitor-card">
 
-            return `
+                                <div>
 
-              <div class="competitor-result-card">
+                                    <span>
+                                        ${escapeHtml(
+                                            getHostname(url)
+                                        )}
+                                    </span>
 
-                <span>
-                  COMPETIDOR ${index + 1}
-                </span>
+                                    <strong>
+                                        ${score}/100
+                                    </strong>
 
-                <h3>
-                  ${escapeHtml(
-                    String(name)
-                  )}
-                </h3>
+                                </div>
 
-                <strong>
-                  ${escapeHtml(
-                    String(score)
-                  )}
-                  /100
-                </strong>
+                                <div class="competitor-bar">
 
-              </div>
+                                    <span
+                                        style="
+                                            width:${score}%;
+                                        "
+                                    ></span>
 
-            `;
+                                </div>
 
-          }
-        )
-        .join("")}
+                                <small>
+                                    ${escapeHtml(
+                                        getStatus(score)
+                                    )}
+                                </small>
 
-    </div>
+                            </div>
 
-  `;
+                        `;
 
+                    })
+                    .join("")
+            }
 
-  message.appendChild(
-    wrapper
-  );
+        </div>
 
-
-  wrapper.scrollIntoView({
-
-    behavior: "smooth",
-
-    block: "center"
-
-  });
+    `;
 
 }
 
@@ -1922,3614 +2267,3528 @@ function renderCompetitorAnalysis(
 
 function generateSEOReport() {
 
-  if (!currentData) {
+    if (!currentData) {
 
-    alert(
-      "Primero analiza una web."
-    );
+        alert(
+            "Primero analiza una web."
+        );
 
-    return;
+        return;
 
-  }
+    }
 
 
-  const seo =
-    currentData.seo || {};
+    const data =
+        currentData;
 
 
-  const score =
-    Number(seo.score || 0);
+    const seo =
+        data?.seo ||
+        data?.analysis ||
+        data ||
+        {};
 
 
-  const url =
-    currentData.finalUrl ||
-    currentMainUrl ||
-    "";
+    const score =
+        clampScore(
+            data.score ||
+            seo.score ||
+            data.totalScore ||
+            0
+        );
 
 
-  const hostname =
-    getHostname(url);
+    const technical =
+        getCategoryScore(
+            seo.technical ||
+            data.technicalScore ||
+            0
+        );
 
 
-  const issues =
-    Array.isArray(seo.issues)
-      ? seo.issues
-      : [];
+    const onPage =
+        getCategoryScore(
+            seo.onPage ||
+            data.onPageScore ||
+            0
+        );
 
 
-  const warnings =
-    Array.isArray(seo.warnings)
-      ? seo.warnings
-      : [];
+    const content =
+        getCategoryScore(
+            seo.content ||
+            data.contentScore ||
+            0
+        );
 
 
-  const passed =
-    Array.isArray(seo.passed)
-      ? seo.passed
-      : [];
+    const indexability =
+        getCategoryScore(
+            seo.indexability ||
+            data.indexabilityScore ||
+            0
+        );
 
 
-  const categories =
-    seo.categories || {};
+    const title =
+        seo.title ||
+        data.title ||
+        "";
 
 
-  const reportWindow =
-    window.open(
-      "",
-      "_blank"
-    );
+    const description =
+        seo.description ||
+        data.description ||
+        "";
 
 
-  if (!reportWindow) {
+    const hostname =
+        getHostname(
+            data.finalUrl ||
+            data.url ||
+            currentMainUrl
+        );
 
-    alert(
-      "El navegador ha bloqueado el informe. Permite ventanas emergentes para RankPilot."
-    );
 
-    return;
+    const actions =
+        buildActionPlan(data);
 
-  }
 
+    const problems =
+        normalizeList(
+            seo.problems ||
+            seo.issues ||
+            data.problems ||
+            data.issues
+        );
 
-  reportWindow.document.write(`
 
-    <!DOCTYPE html>
-
-    <html lang="es">
-
-    <head>
-
-      <meta charset="UTF-8">
-
-      <title>
-        RankPilot SEO Report - ${escapeHtml(hostname)}
-      </title>
-
-      <style>
-
-        * {
-          box-sizing: border-box;
-        }
-
-        body {
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-
-          margin: 0;
-          padding: 40px;
-
-          background: #f5f7fb;
-          color: #111827;
-        }
-
-        .report {
-          max-width: 1000px;
-          margin: auto;
-          background: white;
-          padding: 45px;
-          border-radius: 18px;
-        }
-
-        .brand {
-          font-size: 28px;
-          font-weight: 800;
-          margin-bottom: 30px;
-        }
-
-        .brand span {
-          color: #6366f1;
-        }
-
-        .url {
-          color: #6b7280;
-          margin-bottom: 30px;
-          word-break: break-all;
-        }
-
-        .score {
-          font-size: 72px;
-          font-weight: 800;
-          margin: 0;
-        }
-
-        .score-label {
-          color: #6b7280;
-          margin-bottom: 30px;
-        }
-
-        .grid {
-          display: grid;
-          grid-template-columns:
-            repeat(4, 1fr);
-
-          gap: 15px;
-
-          margin: 30px 0;
-        }
-
-        .card {
-          border: 1px solid #e5e7eb;
-          padding: 20px;
-          border-radius: 12px;
-        }
-
-        .card strong {
-          display: block;
-          font-size: 26px;
-          margin-top: 8px;
-        }
-
-        .section {
-          margin-top: 35px;
-        }
-
-        .section h2 {
-          margin-bottom: 15px;
-        }
-
-        .item {
-          padding: 12px 0;
-          border-bottom:
-            1px solid #e5e7eb;
-        }
-
-        .critical {
-          color: #b91c1c;
-        }
-
-        .warning {
-          color: #92400e;
-        }
-
-        .passed {
-          color: #047857;
-        }
-
-        .print-button {
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          border: 0;
-          background: #111827;
-          color: white;
-          padding: 12px 18px;
-          border-radius: 10px;
-          cursor: pointer;
-        }
-
-        @media print {
-
-          body {
-            padding: 0;
-            background: white;
-          }
-
-          .report {
-            box-shadow: none;
-            border-radius: 0;
-          }
-
-          .print-button {
-            display: none;
-          }
-
-        }
-
-        @media(max-width:700px) {
-
-          body {
-            padding: 15px;
-          }
-
-          .report {
-            padding: 25px;
-          }
-
-          .grid {
-            grid-template-columns:
-              repeat(2, 1fr);
-          }
-
-        }
-
-      </style>
-
-    </head>
-
-
-    <body>
-
-      <button
-        class="print-button"
-        onclick="window.print()"
-      >
-        Guardar / Imprimir PDF
-      </button>
-
-
-      <main class="report">
-
-        <div class="brand">
-          Rank<span>Pilot</span>
-        </div>
-
-        <h1>
-          Informe SEO
-        </h1>
-
-        <div class="url">
-          ${escapeHtml(url)}
-        </div>
-
-
-        <h2 class="score">
-          ${score}/100
-        </h2>
-
-        <div class="score-label">
-          ${escapeHtml(
-            getLabel(score)
-          )}
-        </div>
-
-
-        <div class="grid">
-
-          <div class="card">
-            Technical SEO
-            <strong>
-              ${Number(
-                categories.technical || 0
-              )}
-            </strong>
-          </div>
-
-          <div class="card">
-            On-Page SEO
-            <strong>
-              ${Number(
-                categories.onPage || 0
-              )}
-            </strong>
-          </div>
-
-          <div class="card">
-            Content
-            <strong>
-              ${Number(
-                categories.content || 0
-              )}
-            </strong>
-          </div>
-
-          <div class="card">
-            Indexability
-            <strong>
-              ${Number(
-                categories.indexability || 0
-              )}
-            </strong>
-          </div>
-
-        </div>
-
-
-        <section class="section">
-
-          <h2>
-            Problemas
-          </h2>
-
-          ${
-            issues.length
-              ? issues
-                  .map(
-                    item => `
-                      <div class="item critical">
-                        ❌ ${escapeHtml(
-                          String(item)
+    const warnings =
+        normalizeList(
+            seo.warnings ||
+            data.warnings
+        );
+
+
+    const reportWindow =
+        window.open(
+            "",
+            "_blank",
+            "width=1100,height=800"
+        );
+
+
+    if (!reportWindow) {
+
+        alert(
+            "El navegador ha bloqueado la ventana del informe."
+        );
+
+        return;
+
+    }
+
+
+    reportWindow.document.write(`
+
+        <!DOCTYPE html>
+
+        <html lang="es">
+
+        <head>
+
+            <meta charset="UTF-8">
+
+            <title>
+                RankPilot SEO Report - ${escapeHtml(hostname)}
+            </title>
+
+            <style>
+
+                * {
+                    box-sizing:border-box;
+                }
+
+                body {
+                    margin:0;
+                    font-family:Arial,Helvetica,sans-serif;
+                    color:#0f172a;
+                    background:#f8fafc;
+                }
+
+                .report {
+                    max-width:1000px;
+                    margin:0 auto;
+                    padding:50px;
+                    background:white;
+                    min-height:100vh;
+                }
+
+                .header {
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:flex-start;
+                    gap:30px;
+                    padding-bottom:30px;
+                    border-bottom:1px solid #e2e8f0;
+                }
+
+                .brand {
+                    font-size:28px;
+                    font-weight:800;
+                }
+
+                .brand span {
+                    color:#4f46e5;
+                }
+
+                .url {
+                    color:#64748b;
+                    font-size:13px;
+                    margin-top:8px;
+                    word-break:break-all;
+                }
+
+                .date {
+                    color:#64748b;
+                    font-size:13px;
+                }
+
+                .score {
+                    margin:40px 0;
+                    padding:30px;
+                    border:1px solid #e2e8f0;
+                    border-radius:18px;
+                    display:flex;
+                    align-items:center;
+                    gap:30px;
+                }
+
+                .score-number {
+                    font-size:60px;
+                    font-weight:800;
+                    color:#4f46e5;
+                }
+
+                .score-title {
+                    font-size:24px;
+                    font-weight:700;
+                    margin-bottom:6px;
+                }
+
+                .grid {
+                    display:grid;
+                    grid-template-columns:
+                        repeat(4,1fr);
+                    gap:15px;
+                    margin-bottom:40px;
+                }
+
+                .card {
+                    padding:20px;
+                    border:1px solid #e2e8f0;
+                    border-radius:14px;
+                }
+
+                .card small {
+                    display:block;
+                    color:#64748b;
+                    margin-bottom:10px;
+                }
+
+                .card strong {
+                    font-size:28px;
+                }
+
+                section {
+                    margin-top:40px;
+                }
+
+                h2 {
+                    font-size:21px;
+                    margin-bottom:18px;
+                }
+
+                .action {
+                    padding:16px;
+                    border:1px solid #e2e8f0;
+                    border-radius:12px;
+                    margin-bottom:10px;
+                }
+
+                .action strong {
+                    display:block;
+                    margin-bottom:6px;
+                }
+
+                .action p {
+                    margin:0;
+                    color:#64748b;
+                    line-height:1.5;
+                }
+
+                .issue {
+                    padding:12px 15px;
+                    background:#fff7ed;
+                    border-radius:10px;
+                    margin-bottom:8px;
+                }
+
+                .warning {
+                    padding:12px 15px;
+                    background:#fefce8;
+                    border-radius:10px;
+                    margin-bottom:8px;
+                }
+
+                .meta {
+                    display:grid;
+                    grid-template-columns:
+                        180px 1fr;
+                    gap:10px;
+                    padding:10px 0;
+                    border-bottom:1px solid #e2e8f0;
+                }
+
+                .meta strong {
+                    color:#475569;
+                }
+
+                .footer {
+                    margin-top:60px;
+                    padding-top:20px;
+                    border-top:1px solid #e2e8f0;
+                    color:#94a3b8;
+                    font-size:12px;
+                }
+
+                @media print {
+
+                    body {
+                        background:white;
+                    }
+
+                    .report {
+                        padding:20px;
+                    }
+
+                }
+
+            </style>
+
+        </head>
+
+        <body>
+
+            <main class="report">
+
+                <header class="header">
+
+                    <div>
+
+                        <div class="brand">
+                            Rank<span>Pilot</span>
+                        </div>
+
+                        <div class="url">
+                            ${escapeHtml(
+                                data.finalUrl ||
+                                data.url ||
+                                currentMainUrl
+                            )}
+                        </div>
+
+                    </div>
+
+                    <div class="date">
+
+                        ${new Date().toLocaleDateString(
+                            "es-ES"
                         )}
-                      </div>
-                    `
-                  )
-                  .join("")
-              : `
-                <div class="item passed">
-                  ✓ No se han detectado problemas críticos.
+
+                    </div>
+
+                </header>
+
+
+                <div class="score">
+
+                    <div class="score-number">
+                        ${score}/100
+                    </div>
+
+                    <div>
+
+                        <div class="score-title">
+                            ${escapeHtml(
+                                getLabel(score)
+                            )}
+                        </div>
+
+                        <div>
+                            Análisis SEO generado por RankPilot.
+                        </div>
+
+                    </div>
+
                 </div>
-              `
-          }
-
-        </section>
 
 
-        <section class="section">
+                <div class="grid">
 
-          <h2>
-            Recomendaciones
-          </h2>
+                    <div class="card">
 
-          ${
-            warnings.length
-              ? warnings
-                  .map(
-                    item => `
-                      <div class="item warning">
-                        ⚠ ${escapeHtml(
-                          String(item)
-                        )}
-                      </div>
-                    `
-                  )
-                  .join("")
-              : `
-                <div class="item passed">
-                  ✓ No hay recomendaciones adicionales.
+                        <small>
+                            SEO técnico
+                        </small>
+
+                        <strong>
+                            ${technical}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <small>
+                            On-page
+                        </small>
+
+                        <strong>
+                            ${onPage}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <small>
+                            Contenido
+                        </small>
+
+                        <strong>
+                            ${content}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <small>
+                            Indexabilidad
+                        </small>
+
+                        <strong>
+                            ${indexability}
+                        </strong>
+
+                    </div>
+
                 </div>
-              `
-          }
-
-        </section>
 
 
-        <section class="section">
+                <section>
 
-          <h2>
-            Elementos correctos
-          </h2>
+                    <h2>
+                        SEO Action Plan
+                    </h2>
 
-          ${
-            passed.length
-              ? passed
-                  .map(
-                    item => `
-                      <div class="item passed">
-                        ✓ ${escapeHtml(
-                          String(item)
-                        )}
-                      </div>
-                    `
-                  )
-                  .join("")
-              : `
-                <div class="item">
-                  No hay datos.
+                    ${
+                        actions
+                            .map(function(action) {
+
+                                return `
+
+                                    <div class="action">
+
+                                        <strong>
+                                            ${escapeHtml(
+                                                action.title
+                                            )}
+                                        </strong>
+
+                                        <p>
+                                            ${escapeHtml(
+                                                action.text
+                                            )}
+                                        </p>
+
+                                    </div>
+
+                                `;
+
+                            })
+                            .join("")
+                    }
+
+                </section>
+
+
+                <section>
+
+                    <h2>
+                        On-page
+                    </h2>
+
+                    <div class="meta">
+
+                        <strong>
+                            Title
+                        </strong>
+
+                        <span>
+                            ${escapeHtml(
+                                title ||
+                                "No encontrado"
+                            )}
+                        </span>
+
+                    </div>
+
+                    <div class="meta">
+
+                        <strong>
+                            Meta description
+                        </strong>
+
+                        <span>
+                            ${escapeHtml(
+                                description ||
+                                "No encontrada"
+                            )}
+                        </span>
+
+                    </div>
+
+                </section>
+
+
+                ${
+                    problems.length
+                        ? `
+
+                            <section>
+
+                                <h2>
+                                    Problemas detectados
+                                </h2>
+
+                                ${
+                                    problems
+                                        .map(function(item) {
+
+                                            const text =
+                                                typeof item === "object"
+                                                    ? (
+                                                        item.message ||
+                                                        item.text ||
+                                                        item.title ||
+                                                        JSON.stringify(item)
+                                                    )
+                                                    : item;
+
+                                            return `
+
+                                                <div class="issue">
+                                                    ${escapeHtml(text)}
+                                                </div>
+
+                                            `;
+
+                                        })
+                                        .join("")
+                                }
+
+                            </section>
+
+                        `
+                        : ""
+                }
+
+
+                ${
+                    warnings.length
+                        ? `
+
+                            <section>
+
+                                <h2>
+                                    Advertencias
+                                </h2>
+
+                                ${
+                                    warnings
+                                        .map(function(item) {
+
+                                            const text =
+                                                typeof item === "object"
+                                                    ? (
+                                                        item.message ||
+                                                        item.text ||
+                                                        item.title ||
+                                                        JSON.stringify(item)
+                                                    )
+                                                    : item;
+
+                                            return `
+
+                                                <div class="warning">
+                                                    ${escapeHtml(text)}
+                                                </div>
+
+                                            `;
+
+                                        })
+                                        .join("")
+                                }
+
+                            </section>
+
+                        `
+                        : ""
+                }
+
+
+                <div class="footer">
+
+                    RankPilot — SEO Intelligence Platform
+
                 </div>
-              `
-          }
 
-        </section>
+            </main>
 
 
-        <section class="section">
+            <script>
 
-          <h2>
-            Elementos On-Page
-          </h2>
+                window.onload = function() {
 
-          <div class="item">
-            Title:
-            ${escapeHtml(
-              seo.title || "No encontrado"
-            )}
-          </div>
+                    setTimeout(
+                        function() {
+                            window.print();
+                        },
+                        400
+                    );
 
-          <div class="item">
-            Meta Description:
-            ${escapeHtml(
-              seo.description ||
-              "No encontrada"
-            )}
-          </div>
+                };
 
-          <div class="item">
-            H1:
-            ${Number(
-              seo.h1Count || 0
-            )}
-          </div>
+            <\/script>
 
-          <div class="item">
-            Palabras:
-            ${Number(
-              seo.wordCount || 0
-            )}
-          </div>
+        </body>
 
-          <div class="item">
-            Imágenes:
-            ${Number(
-              seo.imageCount || 0
-            )}
-          </div>
+        </html>
 
-          <div class="item">
-            Imágenes sin ALT:
-            ${Number(
-              seo.imagesWithoutAlt || 0
-            )}
-          </div>
-
-        </section>
+    `);
 
 
-        <p style="
-          margin-top:50px;
-          color:#6b7280;
-          font-size:13px;
-        ">
-          Informe generado por RankPilot.
-        </p>
-
-      </main>
-
-    </body>
-
-    </html>
-
-  `);
-
-
-  reportWindow.document.close();
+    reportWindow.document.close();
 
 }
 
 
 /* =========================================================
-   DASHBOARD / PROYECTOS / HISTORIAL
+   DASHBOARD / PROJECTS / HISTORY
 ========================================================= */
 
-const PROJECTS_STORAGE_KEY =
-  "rankpilot_projects_v1";
+const RANKPILOT_PROJECTS_KEY =
+    "rankpilot_projects_v1";
+
+const RANKPILOT_ACTIVE_PROJECT_KEY =
+    "rankpilot_active_project_v1";
 
 
-function getProjects() {
+function getRankPilotProjects() {
 
-  try {
+    try {
 
-    const data =
-      JSON.parse(
-        localStorage.getItem(
-          PROJECTS_STORAGE_KEY
-        ) || "[]"
-      );
-
-    return Array.isArray(data)
-      ? data
-      : [];
-
-  } catch {
-
-    return [];
-
-  }
-
-}
+        const projects =
+            JSON.parse(
+                localStorage.getItem(
+                    RANKPILOT_PROJECTS_KEY
+                ) || "[]"
+            );
 
 
-function saveProjects(projects) {
+        return Array.isArray(projects)
+            ? projects
+            : [];
 
-  localStorage.setItem(
-    PROJECTS_STORAGE_KEY,
-    JSON.stringify(projects)
-  );
+    } catch (error) {
+
+        return [];
+
+    }
 
 }
 
 
-function createProject(
-  name,
-  url
-) {
+function saveRankPilotProjects(projects) {
 
-  const projects =
-    getProjects();
-
-
-  const project = {
-
-    id:
-      "project_" +
-      Date.now(),
-
-    name:
-      name ||
-      getHostname(url),
-
-    url:
-      url,
-
-    createdAt:
-      new Date().toISOString(),
-
-    updatedAt:
-      new Date().toISOString(),
-
-    analyses: []
-
-  };
-
-
-  projects.unshift(
-    project
-  );
-
-
-  saveProjects(
-    projects
-  );
-
-
-  return project;
+    localStorage.setItem(
+        RANKPILOT_PROJECTS_KEY,
+        JSON.stringify(projects)
+    );
 
 }
 
 
-function saveCurrentAnalysisToProject(
-  data
-) {
+function getActiveProjectId() {
 
-  if (!data || !data.seo) {
-    return;
-  }
-
-
-  const url =
-    data.finalUrl ||
-    data.url ||
-    currentMainUrl;
-
-
-  if (!url) {
-    return;
-  }
-
-
-  const hostname =
-    getHostname(url);
-
-
-  let projects =
-    getProjects();
-
-
-  let project =
-    projects.find(
-      item =>
-        String(item.url)
-          .replace(/\/$/, "")
-          .toLowerCase() ===
-        String(url)
-          .replace(/\/$/, "")
-          .toLowerCase()
+    return localStorage.getItem(
+        RANKPILOT_ACTIVE_PROJECT_KEY
     );
-
-
-  if (!project) {
-
-    project =
-      createProject(
-        hostname,
-        url
-      );
-
-    projects =
-      getProjects();
-
-  }
-
-
-  const analysis = {
-
-    id:
-      "analysis_" +
-      Date.now(),
-
-    date:
-      new Date().toISOString(),
-
-    url:
-      url,
-
-    score:
-      Number(
-        data.seo.score || 0
-      ),
-
-    data:
-      data
-
-  };
-
-
-  project =
-    projects.find(
-      item =>
-        item.id ===
-        project.id
-    );
-
-
-  if (!project) {
-    return;
-  }
-
-
-  if (
-    !Array.isArray(
-      project.analyses
-    )
-  ) {
-
-    project.analyses = [];
-
-  }
-
-
-  project.analyses.unshift(
-    analysis
-  );
-
-
-  project.analyses =
-    project.analyses.slice(
-      0,
-      20
-    );
-
-
-  project.updatedAt =
-    new Date().toISOString();
-
-
-  saveProjects(
-    projects
-  );
 
 }
 
 
-function renderDashboard() {
+function setActiveProjectId(id) {
 
-  let modal =
-    document.getElementById(
-      "rankpilotDashboardModal"
-    );
+    if (id) {
 
-
-  if (!modal) {
-
-    modal =
-      document.createElement(
-        "div"
-      );
-
-    modal.id =
-      "rankpilotDashboardModal";
-
-    modal.className =
-      "rankpilot-modal";
-
-    document.body.appendChild(
-      modal
-    );
-
-  }
-
-
-  const projects =
-    getProjects();
-
-
-  modal.innerHTML = `
-
-    <div class="rankpilot-modal-overlay">
-
-      <div class="rankpilot-modal-card">
-
-        <button
-          class="rankpilot-close"
-          onclick="closeRankPilotDashboard()"
-        >
-          ×
-        </button>
-
-
-        <div class="rankpilot-dashboard-header">
-
-          <span>
-            RANKPILOT
-          </span>
-
-          <h2>
-            Dashboard
-          </h2>
-
-          <p>
-            Gestiona tus proyectos SEO y consulta
-            tu historial de análisis.
-          </p>
-
-        </div>
-
-
-        <div class="rankpilot-dashboard-stats">
-
-          <div>
-            <span>
-              Proyectos
-            </span>
-
-            <strong>
-              ${projects.length}
-            </strong>
-          </div>
-
-
-          <div>
-            <span>
-              Análisis
-            </span>
-
-            <strong>
-              ${projects.reduce(
-                (
-                  total,
-                  project
-                ) =>
-                  total +
-                  (
-                    Array.isArray(
-                      project.analyses
-                    )
-                      ? project.analyses.length
-                      : 0
-                  ),
-                0
-              )}
-            </strong>
-          </div>
-
-        </div>
-
-
-        <div class="rankpilot-project-create">
-
-          <h3>
-            Nuevo proyecto
-          </h3>
-
-          <div class="rankpilot-project-form">
-
-            <input
-              id="rankpilotProjectName"
-              placeholder="Nombre del proyecto"
-            />
-
-            <input
-              id="rankpilotProjectUrl"
-              placeholder="https://ejemplo.com"
-            />
-
-            <button
-              onclick="rankPilotCreateProjectFromDashboard()"
-            >
-              Crear proyecto
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <div class="rankpilot-projects">
-
-          <h3>
-            Mis proyectos
-          </h3>
-
-
-          ${
-            projects.length
-              ? projects
-                  .map(
-                    project =>
-                      renderProjectCard(
-                        project
-                      )
-                  )
-                  .join("")
-              : `
-
-                <div class="rankpilot-empty">
-
-                  <strong>
-                    Todavía no tienes proyectos.
-                  </strong>
-
-                  <p>
-                    Analiza una web para crear tu primer proyecto.
-                  </p>
-
-                </div>
-
-              `
-          }
-
-        </div>
-
-      </div>
-
-    </div>
-
-  `;
-
-
-  modal.style.display =
-    "block";
-
-
-  document.body.style.overflow =
-    "hidden";
-
-}
-
-
-function renderProjectCard(
-  project
-) {
-
-  const analyses =
-    Array.isArray(
-      project.analyses
-    )
-      ? project.analyses
-      : [];
-
-
-  const latest =
-    analyses[0];
-
-
-  return `
-
-    <div class="rankpilot-project-card">
-
-      <div>
-
-        <strong>
-          ${escapeHtml(
-            project.name
-          )}
-        </strong>
-
-        <span>
-          ${escapeHtml(
-            project.url
-          )}
-        </span>
-
-      </div>
-
-
-      <div class="rankpilot-project-score">
-
-        ${
-          latest
-            ? `
-              <strong>
-                ${latest.score}/100
-              </strong>
-
-              <span>
-                ${formatDate(
-                  latest.date
-                )}
-              </span>
-            `
-            : `
-              <span>
-                Sin análisis
-              </span>
-            `
-        }
-
-      </div>
-
-
-      <div class="rankpilot-project-actions">
-
-        <button
-          onclick="rankPilotAnalyzeProject('${project.id}')"
-        >
-          Analizar
-        </button>
-
-        <button
-          onclick="rankPilotShowProject('${project.id}')"
-        >
-          Historial
-        </button>
-
-        <button
-          class="danger"
-          onclick="rankPilotDeleteProject('${project.id}')"
-        >
-          Eliminar
-        </button>
-
-      </div>
-
-    </div>
-
-  `;
-
-}
-
-
-function rankPilotCreateProjectFromDashboard() {
-
-  const nameInput =
-    document.getElementById(
-      "rankpilotProjectName"
-    );
-
-
-  const urlInput =
-    document.getElementById(
-      "rankpilotProjectUrl"
-    );
-
-
-  const name =
-    nameInput
-      ? nameInput.value.trim()
-      : "";
-
-
-  let url =
-    urlInput
-      ? urlInput.value.trim()
-      : "";
-
-
-  if (!url) {
-
-    alert(
-      "Introduce una URL."
-    );
-
-    return;
-
-  }
-
-
-  if (
-    !/^https?:\/\//i.test(url)
-  ) {
-
-    url =
-      "https://" + url;
-
-  }
-
-
-  createProject(
-    name ||
-      getHostname(url),
-    url
-  );
-
-
-  renderDashboard();
-
-}
-
-
-function rankPilotShowProject(
-  projectId
-) {
-
-  const projects =
-    getProjects();
-
-
-  const project =
-    projects.find(
-      item =>
-        item.id ===
-        projectId
-    );
-
-
-  if (!project) {
-    return;
-  }
-
-
-  const modal =
-    document.getElementById(
-      "rankpilotDashboardModal"
-    );
-
-
-  if (!modal) {
-    return;
-  }
-
-
-  const analyses =
-    Array.isArray(
-      project.analyses
-    )
-      ? project.analyses
-      : [];
-
-
-  modal.innerHTML = `
-
-    <div class="rankpilot-modal-overlay">
-
-      <div class="rankpilot-modal-card">
-
-        <button
-          class="rankpilot-close"
-          onclick="renderDashboard()"
-        >
-          ×
-        </button>
-
-
-        <div class="rankpilot-dashboard-header">
-
-          <span>
-            MI PROYECTO
-          </span>
-
-          <h2>
-            ${escapeHtml(
-              project.name
-            )}
-          </h2>
-
-          <p>
-            ${escapeHtml(
-              project.url
-            )}
-          </p>
-
-        </div>
-
-
-        <button
-          onclick="rankPilotAnalyzeProject('${project.id}')"
-          class="rankpilot-primary-button"
-        >
-          Analizar ahora
-        </button>
-
-
-        <div class="rankpilot-history">
-
-          <h3>
-            Historial
-          </h3>
-
-
-          ${
-            analyses.length
-              ? analyses
-                  .map(
-                    analysis => `
-
-                      <div class="rankpilot-history-row">
-
-                        <div>
-
-                          <strong>
-                            ${analysis.score}/100
-                          </strong>
-
-                          <span>
-                            ${formatDate(
-                              analysis.date
-                            )}
-                          </span>
-
-                        </div>
-
-
-                        <button
-                          onclick="rankPilotRestoreAnalysis('${project.id}','${analysis.id}')"
-                        >
-                          Ver análisis
-                        </button>
-
-                      </div>
-
-                    `
-                  )
-                  .join("")
-              : `
-
-                <div class="rankpilot-empty">
-
-                  Todavía no hay análisis.
-
-                </div>
-
-              `
-          }
-
-        </div>
-
-
-        <button
-          onclick="renderDashboard()"
-          class="rankpilot-secondary-button"
-        >
-          ← Volver a proyectos
-        </button>
-
-      </div>
-
-    </div>
-
-  `;
-
-}
-
-
-function rankPilotAnalyzeProject(
-  projectId
-) {
-
-  const projects =
-    getProjects();
-
-
-  const project =
-    projects.find(
-      item =>
-        item.id ===
-        projectId
-    );
-
-
-  if (!project) {
-    return;
-  }
-
-
-  closeRankPilotDashboard();
-
-
-  if (input) {
-    input.value =
-      project.url;
-  }
-
-
-  window.scrollTo({
-
-    top: 0,
-
-    behavior: "smooth"
-
-  });
-
-
-  setTimeout(
-    () => {
-
-      if (form) {
-
-        form.dispatchEvent(
-          new Event(
-            "submit",
-            {
-              bubbles: true,
-              cancelable: true
-            }
-          )
+        localStorage.setItem(
+            RANKPILOT_ACTIVE_PROJECT_KEY,
+            id
         );
 
-      }
+    } else {
 
-    },
-    400
-  );
+        localStorage.removeItem(
+            RANKPILOT_ACTIVE_PROJECT_KEY
+        );
 
-}
-
-
-function rankPilotRestoreAnalysis(
-  projectId,
-  analysisId
-) {
-
-  const projects =
-    getProjects();
-
-
-  const project =
-    projects.find(
-      item =>
-        item.id ===
-        projectId
-    );
-
-
-  if (!project) {
-    return;
-  }
-
-
-  const analysis =
-    (
-      project.analyses || []
-    ).find(
-      item =>
-        item.id ===
-        analysisId
-    );
-
-
-  if (!analysis || !analysis.data) {
-    return;
-  }
-
-
-  currentData =
-    analysis.data;
-
-
-  currentMainUrl =
-    analysis.url ||
-    currentMainUrl;
-
-
-  closeRankPilotDashboard();
-
-
-  renderResults(
-    currentData
-  );
-
-
-  window.scrollTo({
-
-    top: 0,
-
-    behavior: "smooth"
-
-  });
+    }
 
 }
 
 
-function rankPilotDeleteProject(
-  projectId
+function projectMatchesUrl(project, url) {
+
+    if (!project || !url) {
+        return false;
+    }
+
+
+    const projectHost =
+        getHostname(project.url);
+
+
+    const targetHost =
+        getHostname(url);
+
+
+    return (
+        projectHost &&
+        targetHost &&
+        projectHost === targetHost
+    );
+
+}
+
+
+function saveAnalysisToProject(
+    projectId,
+    data
 ) {
 
-  const confirmed =
-    confirm(
-      "¿Quieres eliminar este proyecto y su historial?"
+    if (!projectId || !data) {
+        return;
+    }
+
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const project =
+        projects.find(function(item) {
+
+            return item.id === projectId;
+
+        });
+
+
+    if (!project) {
+        return;
+    }
+
+
+    if (!Array.isArray(project.analyses)) {
+
+        project.analyses = [];
+
+    }
+
+
+    const score =
+        clampScore(
+            data.score ||
+            data.seo?.score ||
+            data.totalScore ||
+            0
+        );
+
+
+    const analysis = {
+
+        id:
+            "analysis_" +
+            Date.now(),
+
+        createdAt:
+            new Date().toISOString(),
+
+        score:
+            score,
+
+        url:
+            data.finalUrl ||
+            data.url ||
+            currentMainUrl,
+
+        data:
+            data
+
+    };
+
+
+    project.analyses.unshift(
+        analysis
     );
 
 
-  if (!confirmed) {
-    return;
-  }
+    /*
+     * Evitar un historial infinito.
+     */
+
+    project.analyses =
+        project.analyses.slice(
+            0,
+            20
+        );
 
 
-  const projects =
-    getProjects()
-      .filter(
-        project =>
-          project.id !==
-          projectId
-      );
+    project.updatedAt =
+        new Date().toISOString();
 
 
-  saveProjects(
-    projects
-  );
+    project.lastScore =
+        score;
 
 
-  renderDashboard();
+    saveRankPilotProjects(
+        projects
+    );
+
+}
+
+
+function rankPilotAutoSaveAnalysis(data) {
+
+    if (!data) {
+        return;
+    }
+
+
+    const projects =
+        getRankPilotProjects();
+
+
+    if (!projects.length) {
+        return;
+    }
+
+
+    const activeId =
+        getActiveProjectId();
+
+
+    let project = null;
+
+
+    if (activeId) {
+
+        project =
+            projects.find(function(item) {
+
+                return item.id === activeId;
+
+            });
+
+    }
+
+
+    if (
+        !project ||
+        !projectMatchesUrl(
+            project,
+            data.finalUrl ||
+            data.url ||
+            currentMainUrl
+        )
+    ) {
+
+        project =
+            projects.find(function(item) {
+
+                return projectMatchesUrl(
+                    item,
+                    data.finalUrl ||
+                    data.url ||
+                    currentMainUrl
+                );
+
+            });
+
+    }
+
+
+    if (!project) {
+        return;
+    }
+
+
+    /*
+     * Evitar guardar exactamente el mismo análisis
+     * repetidamente.
+     */
+
+    const last =
+        project.analyses &&
+        project.analyses[0];
+
+
+    const newScore =
+        clampScore(
+            data.score ||
+            data.seo?.score ||
+            data.totalScore ||
+            0
+        );
+
+
+    if (
+        last &&
+        last.url === (
+            data.finalUrl ||
+            data.url ||
+            currentMainUrl
+        ) &&
+        last.score === newScore
+    ) {
+
+        return;
+
+    }
+
+
+    saveAnalysisToProject(
+        project.id,
+        data
+    );
+
+}
+
+
+/* =========================================================
+   DASHBOARD MODAL
+========================================================= */
+
+function createRankPilotDashboard() {
+
+    if (
+        document.getElementById(
+            "rankpilotDashboardModal"
+        )
+    ) {
+        return;
+    }
+
+
+    const modal =
+        document.createElement("div");
+
+
+    modal.id =
+        "rankpilotDashboardModal";
+
+
+    modal.innerHTML = `
+
+        <div class="rankpilot-dashboard-overlay"></div>
+
+        <div class="rankpilot-dashboard">
+
+            <aside class="rankpilot-dashboard-sidebar">
+
+                <div class="rankpilot-dashboard-logo">
+                    Rank<span>Pilot</span>
+                </div>
+
+
+                <button
+                    class="rankpilot-dashboard-nav active"
+                    data-section="dashboard"
+                >
+                    📊 Dashboard
+                </button>
+
+
+                <button
+                    class="rankpilot-dashboard-nav"
+                    data-section="projects"
+                >
+                    📁 Proyectos
+                </button>
+
+
+                <button
+                    class="rankpilot-dashboard-nav"
+                    data-section="history"
+                >
+                    📈 Historial
+                </button>
+
+
+                <button
+                    class="rankpilot-dashboard-nav"
+                    data-section="account"
+                >
+                    ⚙️ Cuenta
+                </button>
+
+
+                <button
+                    class="rankpilot-dashboard-close"
+                    type="button"
+                >
+                    Cerrar
+                </button>
+
+            </aside>
+
+
+            <main
+                id="rankpilotDashboardContent"
+                class="rankpilot-dashboard-content"
+            ></main>
+
+        </div>
+
+    `;
+
+
+    document.body.appendChild(
+        modal
+    );
+
+
+    if (
+        !document.getElementById(
+            "rankpilotDashboardStyles"
+        )
+    ) {
+
+        const style =
+            document.createElement("style");
+
+
+        style.id =
+            "rankpilotDashboardStyles";
+
+
+        style.textContent = `
+
+            #rankpilotDashboardModal {
+                position:fixed;
+                inset:0;
+                z-index:99998;
+                display:none;
+            }
+
+            #rankpilotDashboardModal.open {
+                display:block;
+            }
+
+            .rankpilot-dashboard-overlay {
+                position:absolute;
+                inset:0;
+                background:rgba(15,23,42,.65);
+                backdrop-filter:blur(5px);
+            }
+
+            .rankpilot-dashboard {
+                position:absolute;
+                inset:30px;
+                display:flex;
+                overflow:hidden;
+                background:#fff;
+                border-radius:20px;
+                box-shadow:
+                    0 30px 80px rgba(15,23,42,.25);
+            }
+
+            .rankpilot-dashboard-sidebar {
+                width:220px;
+                flex-shrink:0;
+                display:flex;
+                flex-direction:column;
+                gap:5px;
+                padding:25px 15px;
+                background:#0f172a;
+            }
+
+            .rankpilot-dashboard-logo {
+                padding:0 10px 25px;
+                color:#fff;
+                font-size:22px;
+                font-weight:800;
+            }
+
+            .rankpilot-dashboard-logo span {
+                color:#818cf8;
+            }
+
+            .rankpilot-dashboard-nav {
+                width:100%;
+                padding:12px;
+                border:0;
+                border-radius:9px;
+                background:transparent;
+                color:#cbd5e1;
+                text-align:left;
+                font-size:14px;
+                cursor:pointer;
+            }
+
+            .rankpilot-dashboard-nav:hover,
+            .rankpilot-dashboard-nav.active {
+                background:#1e293b;
+                color:#fff;
+            }
+
+            .rankpilot-dashboard-close {
+                margin-top:auto;
+                padding:11px;
+                border:1px solid #334155;
+                border-radius:9px;
+                background:transparent;
+                color:#cbd5e1;
+                cursor:pointer;
+            }
+
+            .rankpilot-dashboard-content {
+                flex:1;
+                overflow:auto;
+                padding:35px;
+                background:#f8fafc;
+            }
+
+            .dashboard-title {
+                margin:0 0 7px;
+                color:#0f172a;
+                font-size:28px;
+            }
+
+            .dashboard-subtitle {
+                margin:0 0 30px;
+                color:#64748b;
+            }
+
+            .dashboard-stats {
+                display:grid;
+                grid-template-columns:
+                    repeat(3,1fr);
+                gap:16px;
+                margin-bottom:30px;
+            }
+
+            .dashboard-stat {
+                padding:20px;
+                background:#fff;
+                border:1px solid #e2e8f0;
+                border-radius:14px;
+            }
+
+            .dashboard-stat span {
+                display:block;
+                color:#64748b;
+                font-size:13px;
+                margin-bottom:8px;
+            }
+
+            .dashboard-stat strong {
+                color:#0f172a;
+                font-size:28px;
+            }
+
+            .dashboard-projects {
+                display:grid;
+                grid-template-columns:
+                    repeat(2,minmax(0,1fr));
+                gap:16px;
+            }
+
+            .dashboard-project {
+                padding:20px;
+                background:#fff;
+                border:1px solid #e2e8f0;
+                border-radius:14px;
+            }
+
+            .dashboard-project h4 {
+                margin:0 0 5px;
+                color:#0f172a;
+            }
+
+            .dashboard-project-url {
+                color:#64748b;
+                font-size:13px;
+                word-break:break-all;
+            }
+
+            .dashboard-project-score {
+                margin:20px 0;
+                font-size:30px;
+                font-weight:800;
+                color:#4f46e5;
+            }
+
+            .dashboard-actions {
+                display:flex;
+                flex-wrap:wrap;
+                gap:8px;
+            }
+
+            .dashboard-action {
+                padding:9px 12px;
+                border:1px solid #dbe2ea;
+                border-radius:8px;
+                background:#fff;
+                color:#334155;
+                cursor:pointer;
+            }
+
+            .dashboard-action.primary {
+                background:#4f46e5;
+                border-color:#4f46e5;
+                color:#fff;
+            }
+
+            .dashboard-action.danger {
+                color:#dc2626;
+            }
+
+            .dashboard-history {
+                background:#fff;
+                border:1px solid #e2e8f0;
+                border-radius:14px;
+                overflow:hidden;
+            }
+
+            .dashboard-history-row {
+                display:grid;
+                grid-template-columns:
+                    1fr 100px 170px 180px;
+                gap:15px;
+                align-items:center;
+                padding:15px 18px;
+                border-bottom:1px solid #e2e8f0;
+            }
+
+            .dashboard-history-row:last-child {
+                border-bottom:0;
+            }
+
+            .dashboard-create {
+                margin-bottom:25px;
+                padding:20px;
+                background:#fff;
+                border:1px solid #e2e8f0;
+                border-radius:14px;
+            }
+
+            .dashboard-create-grid {
+                display:grid;
+                grid-template-columns:
+                    1fr 1fr auto;
+                gap:10px;
+            }
+
+            .dashboard-create input {
+                width:100%;
+                box-sizing:border-box;
+                padding:11px 12px;
+                border:1px solid #dbe2ea;
+                border-radius:9px;
+            }
+
+            .dashboard-empty {
+                padding:45px;
+                background:#fff;
+                border:1px dashed #cbd5e1;
+                border-radius:14px;
+                text-align:center;
+                color:#64748b;
+            }
+
+            @media(max-width:800px) {
+
+                .rankpilot-dashboard {
+                    inset:10px;
+                    flex-direction:column;
+                }
+
+                .rankpilot-dashboard-sidebar {
+                    width:auto;
+                    flex-direction:row;
+                    overflow-x:auto;
+                    padding:12px;
+                }
+
+                .rankpilot-dashboard-logo {
+                    display:none;
+                }
+
+                .rankpilot-dashboard-close {
+                    margin-top:0;
+                }
+
+                .dashboard-stats {
+                    grid-template-columns:1fr;
+                }
+
+                .dashboard-projects {
+                    grid-template-columns:1fr;
+                }
+
+                .dashboard-create-grid {
+                    grid-template-columns:1fr;
+                }
+
+                .dashboard-history-row {
+                    grid-template-columns:1fr;
+                }
+
+                .rankpilot-dashboard-content {
+                    padding:20px;
+                }
+
+            }
+
+        `;
+
+
+        document.head.appendChild(
+            style
+        );
+
+    }
+
+
+    modal
+        .querySelector(
+            ".rankpilot-dashboard-overlay"
+        )
+        .addEventListener(
+            "click",
+            closeRankPilotDashboard
+        );
+
+
+    modal
+        .querySelector(
+            ".rankpilot-dashboard-close"
+        )
+        .addEventListener(
+            "click",
+            closeRankPilotDashboard
+        );
+
+
+    modal
+        .querySelectorAll(
+            ".rankpilot-dashboard-nav"
+        )
+        .forEach(function(button) {
+
+            button.addEventListener(
+                "click",
+                function() {
+
+                    openRankPilotDashboard(
+                        button.dataset.section
+                    );
+
+                }
+            );
+
+        });
+
+}
+
+
+function openRankPilotDashboard(
+    section = "dashboard"
+) {
+
+    createRankPilotDashboard();
+
+
+    const modal =
+        document.getElementById(
+            "rankpilotDashboardModal"
+        );
+
+
+    if (!modal) {
+        return;
+    }
+
+
+    modal.classList.add("open");
+
+    document.body.style.overflow =
+        "hidden";
+
+
+    document
+        .querySelectorAll(
+            ".rankpilot-dashboard-nav"
+        )
+        .forEach(function(button) {
+
+            button.classList.toggle(
+                "active",
+                button.dataset.section === section
+            );
+
+        });
+
+
+    renderDashboardSection(
+        section
+    );
 
 }
 
 
 function closeRankPilotDashboard() {
 
-  const modal =
-    document.getElementById(
-      "rankpilotDashboardModal"
-    );
+    const modal =
+        document.getElementById(
+            "rankpilotDashboardModal"
+        );
 
 
-  if (modal) {
-
-    modal.style.display =
-      "none";
-
-  }
+    if (!modal) {
+        return;
+    }
 
 
-  document.body.style.overflow =
-    "";
+    modal.classList.remove("open");
+
+    document.body.style.overflow =
+        "";
 
 }
+
+
+window.openRankPilotDashboard =
+    openRankPilotDashboard;
+
+
+window.closeRankPilotDashboard =
+    closeRankPilotDashboard;
 
 
 /* =========================================================
-   BOTÓN DASHBOARD
+   DASHBOARD CONTENT
 ========================================================= */
 
-function createDashboardButton() {
-
-  if (
-    document.getElementById(
-      "rankpilotDashboardButton"
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  const button =
-    document.createElement(
-      "button"
-    );
-
-
-  button.id =
-    "rankpilotDashboardButton";
-
-
-  button.type =
-    "button";
-
-
-  button.textContent =
-    "Dashboard";
-
-
-  button.addEventListener(
-    "click",
-    renderDashboard
-  );
-
-
-  document.body.appendChild(
-    button
-  );
-
-
-  const style =
-    document.createElement(
-      "style"
-    );
-
-
-  style.id =
-    "rankpilotDashboardStyles";
-
-
-  style.textContent = `
-
-    #rankpilotDashboardButton {
-
-      position: fixed;
-
-      bottom: 24px;
-
-      right: 24px;
-
-      z-index: 9990;
-
-      border: none;
-
-      border-radius: 12px;
-
-      padding: 12px 18px;
-
-      background: #111827;
-
-      color: white;
-
-      font-weight: 700;
-
-      cursor: pointer;
-
-      box-shadow:
-        0 10px 30px
-        rgba(0,0,0,.15);
-
-    }
-
-
-    #rankpilotDashboardButton:hover {
-      transform: translateY(-2px);
-    }
-
-
-    .rankpilot-modal {
-
-      position: fixed;
-
-      inset: 0;
-
-      z-index: 10000;
-
-    }
-
-
-    .rankpilot-modal-overlay {
-
-      position: fixed;
-
-      inset: 0;
-
-      background:
-        rgba(15,23,42,.65);
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-
-      padding: 20px;
-
-      overflow-y: auto;
-
-    }
-
-
-    .rankpilot-modal-card {
-
-      position: relative;
-
-      width: min(950px, 100%);
-
-      max-height: 90vh;
-
-      overflow-y: auto;
-
-      background: white;
-
-      border-radius: 20px;
-
-      padding: 30px;
-
-      box-shadow:
-        0 30px 80px
-        rgba(0,0,0,.25);
-
-    }
-
-
-    .rankpilot-close {
-
-      position: absolute;
-
-      top: 15px;
-
-      right: 18px;
-
-      border: none;
-
-      background: none;
-
-      font-size: 30px;
-
-      cursor: pointer;
-
-    }
-
-
-    .rankpilot-dashboard-header span {
-
-      font-size: 12px;
-
-      font-weight: 800;
-
-      letter-spacing: .12em;
-
-      color: #6366f1;
-
-    }
-
-
-    .rankpilot-dashboard-header h2 {
-
-      margin: 6px 0;
-
-      font-size: 30px;
-
-    }
-
-
-    .rankpilot-dashboard-header p {
-
-      color: #6b7280;
-
-    }
-
-
-    .rankpilot-dashboard-stats {
-
-      display: grid;
-
-      grid-template-columns:
-        repeat(2,1fr);
-
-      gap: 15px;
-
-      margin: 25px 0;
-
-    }
-
-
-    .rankpilot-dashboard-stats > div {
-
-      padding: 20px;
-
-      border:
-        1px solid #e5e7eb;
-
-      border-radius: 14px;
-
-    }
-
-
-    .rankpilot-dashboard-stats span {
-
-      display: block;
-
-      color: #6b7280;
-
-    }
-
-
-    .rankpilot-dashboard-stats strong {
-
-      display: block;
-
-      font-size: 30px;
-
-      margin-top: 5px;
-
-    }
-
-
-    .rankpilot-project-create {
-
-      padding: 20px;
-
-      background: #f8fafc;
-
-      border-radius: 14px;
-
-      margin-bottom: 25px;
-
-    }
-
-
-    .rankpilot-project-form {
-
-      display: grid;
-
-      grid-template-columns:
-        1fr 1fr auto;
-
-      gap: 10px;
-
-    }
-
-
-    .rankpilot-project-form input {
-
-      padding: 12px;
-
-      border:
-        1px solid #d1d5db;
-
-      border-radius: 9px;
-
-    }
-
-
-    .rankpilot-project-form button,
-    .rankpilot-primary-button {
-
-      border: none;
-
-      background: #111827;
-
-      color: white;
-
-      border-radius: 9px;
-
-      padding: 12px 16px;
-
-      cursor: pointer;
-
-      font-weight: 700;
-
-    }
-
-
-    .rankpilot-secondary-button {
-
-      border:
-        1px solid #d1d5db;
-
-      background: white;
-
-      border-radius: 9px;
-
-      padding: 11px 16px;
-
-      cursor: pointer;
-
-      margin-top: 20px;
-
-    }
-
-
-    .rankpilot-project-card {
-
-      display: grid;
-
-      grid-template-columns:
-        1.5fr .7fr auto;
-
-      gap: 20px;
-
-      align-items: center;
-
-      padding: 18px 0;
-
-      border-bottom:
-        1px solid #e5e7eb;
-
-    }
-
-
-    .rankpilot-project-card strong,
-    .rankpilot-project-card span {
-
-      display: block;
-
-    }
-
-
-    .rankpilot-project-card span {
-
-      color: #6b7280;
-
-      font-size: 13px;
-
-      margin-top: 4px;
-
-      word-break: break-all;
-
-    }
-
-
-    .rankpilot-project-score strong {
-
-      color: #111827;
-
-    }
-
-
-    .rankpilot-project-actions {
-
-      display: flex;
-
-      gap: 7px;
-
-      flex-wrap: wrap;
-
-    }
-
-
-    .rankpilot-project-actions button {
-
-      border:
-        1px solid #d1d5db;
-
-      background: white;
-
-      border-radius: 8px;
-
-      padding: 8px 10px;
-
-      cursor: pointer;
-
-    }
-
-
-    .rankpilot-project-actions .danger {
-
-      color: #b91c1c;
-
-    }
-
-
-    .rankpilot-history-row {
-
-      display: flex;
-
-      justify-content: space-between;
-
-      align-items: center;
-
-      padding: 15px 0;
-
-      border-bottom:
-        1px solid #e5e7eb;
-
-    }
-
-
-    .rankpilot-history-row strong {
-
-      font-size: 20px;
-
-    }
-
-
-    .rankpilot-history-row span {
-
-      display: block;
-
-      color: #6b7280;
-
-      font-size: 13px;
-
-    }
-
-
-    .rankpilot-history-row button {
-
-      border:
-        1px solid #d1d5db;
-
-      background: white;
-
-      border-radius: 8px;
-
-      padding: 8px 12px;
-
-      cursor: pointer;
-
-    }
-
-
-    .rankpilot-empty {
-
-      text-align: center;
-
-      padding: 35px;
-
-      color: #6b7280;
-
-    }
-
-
-    @media(max-width:700px) {
-
-      #rankpilotDashboardButton {
-
-        bottom: 12px;
-
-        right: 12px;
-
-      }
-
-
-      .rankpilot-project-form {
-
-        grid-template-columns: 1fr;
-
-      }
-
-
-      .rankpilot-project-card {
-
-        grid-template-columns: 1fr;
-
-      }
-
-
-      .rankpilot-dashboard-stats {
-
-        grid-template-columns: 1fr;
-
-      }
-
-    }
-
-  `;
-
-
-  document.head.appendChild(
-    style
-  );
-
-}
-
-
-/* =========================================================
-   CUENTA / PLANES
-========================================================= */
-
-const ACCOUNT_STORAGE_KEY =
-  "rankpilot_account_v1";
-
-
-const RANKPILOT_PLANS = {
-
-  Starter: {
-
-    name: "Starter",
-
-    price: 0,
-
-    description:
-      "Para empezar a analizar webs.",
-
-    projects: 1,
-
-    analyses: 10
-
-  },
-
-
-  Pro: {
-
-    name: "Pro",
-
-    price: 19,
-
-    description:
-      "Para profesionales SEO.",
-
-    projects: 10,
-
-    analyses: 100
-
-  },
-
-
-  Agency: {
-
-    name: "Agency",
-
-    price: 49,
-
-    description:
-      "Para agencias y equipos.",
-
-    projects: Infinity,
-
-    analyses: Infinity
-
-  }
-
-};
-
-
-function getRankPilotAccount() {
-
-  try {
-
-    const account =
-      JSON.parse(
-        localStorage.getItem(
-          ACCOUNT_STORAGE_KEY
-        ) || "null"
-      );
-
-
-    return account || {
-
-      loggedIn: false,
-
-      name: "",
-
-      email: "",
-
-      plan: "Starter"
-
-    };
-
-  } catch {
-
-    return {
-
-      loggedIn: false,
-
-      name: "",
-
-      email: "",
-
-      plan: "Starter"
-
-    };
-
-  }
-
-}
-
-
-function saveRankPilotAccount(
-  account
+function renderDashboardSection(
+    section
 ) {
 
-  localStorage.setItem(
-    ACCOUNT_STORAGE_KEY,
-    JSON.stringify(account)
-  );
+    const container =
+        document.getElementById(
+            "rankpilotDashboardContent"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    if (section === "projects") {
+
+        renderProjectsSection(
+            container
+        );
+
+        return;
+
+    }
+
+
+    if (section === "history") {
+
+        renderHistorySection(
+            container
+        );
+
+        return;
+
+    }
+
+
+    if (section === "account") {
+
+        renderAccountSection(
+            container
+        );
+
+        return;
+
+    }
+
+
+    renderDashboardHome(
+        container
+    );
 
 }
 
 
-function rankPilotHasFeature(
-  feature
+function renderDashboardHome(
+    container
 ) {
 
-  /*
-    Las funciones avanzadas siguen activas durante
-    esta fase de desarrollo.
+    const projects =
+        getRankPilotProjects();
 
-    El bloqueo real se añadirá cuando conectemos
-    autenticación y pagos al backend.
-  */
 
-  return true;
+    const analyses =
+        projects.reduce(
+            function(total, project) {
 
-}
+                return total +
+                    (
+                        Array.isArray(project.analyses)
+                            ? project.analyses.length
+                            : 0
+                    );
 
+            },
+            0
+        );
 
-/* =========================================================
-   HEADER — LOGIN
-========================================================= */
 
-(function initRankPilotHeaderAccount() {
+    const scores =
+        projects
+            .flatMap(function(project) {
 
-  function start() {
+                return Array.isArray(project.analyses)
+                    ? project.analyses
+                    : [];
 
-    const loginBtn =
-      document.getElementById(
-        "loginBtn"
-      );
+            })
+            .map(function(analysis) {
 
-
-    if (!loginBtn) {
-
-      console.warn(
-        "RankPilot: no se encontró #loginBtn"
-      );
-
-      return;
-
-    }
-
-
-    /*
-      ELIMINAMOS EL ANTIGUO BOTÓN FLOTANTE
-      DE CUENTA.
-    */
-
-    const oldAccountButton =
-      document.getElementById(
-        "rankpilotAccountButton"
-      );
-
-
-    if (oldAccountButton) {
-
-      oldAccountButton.remove();
-
-    }
-
-
-    const oldContainers =
-      document.querySelectorAll(
-        ".rankpilot-account-button-container, " +
-        ".rankpilot-floating-account, " +
-        ".rankpilot-floating-login, " +
-        "#rankpilotAccountButtonContainer"
-      );
-
-
-    oldContainers.forEach(
-      element =>
-        element.remove()
-    );
-
-
-    /*
-      Evitar duplicar el menú.
-    */
-
-    if (
-      document.getElementById(
-        "rankpilotAccountMenu"
-      )
-    ) {
-
-      updateHeaderAccount();
-
-      return;
-
-    }
-
-
-    /*
-      Contenedor.
-    */
-
-    const wrapper =
-      document.createElement(
-        "div"
-      );
-
-
-    wrapper.className =
-      "rankpilot-account-wrapper";
-
-
-    loginBtn.parentNode.insertBefore(
-      wrapper,
-      loginBtn
-    );
-
-
-    wrapper.appendChild(
-      loginBtn
-    );
-
-
-    /*
-      Menú.
-    */
-
-    const menu =
-      document.createElement(
-        "div"
-      );
-
-
-    menu.id =
-      "rankpilotAccountMenu";
-
-
-    menu.className =
-      "rankpilot-account-menu";
-
-
-    menu.innerHTML = `
-
-      <button
-        data-action="dashboard"
-      >
-        Dashboard
-      </button>
-
-      <button
-        data-action="projects"
-      >
-        Mis proyectos
-      </button>
-
-      <button
-        data-action="history"
-      >
-        Historial
-      </button>
-
-      <button
-        data-action="account"
-      >
-        Mi cuenta
-      </button>
-
-      <div class="account-menu-divider"></div>
-
-      <button
-        data-action="logout"
-        class="logout"
-      >
-        Cerrar sesión
-      </button>
-
-    `;
-
-
-    wrapper.appendChild(
-      menu
-    );
-
-
-    /*
-      Click botón.
-    */
-
-    loginBtn.addEventListener(
-      "click",
-      function(event) {
-
-        event.preventDefault();
-
-        const account =
-          getRankPilotAccount();
-
-
-        if (
-          account.loggedIn
-        ) {
-
-          menu.classList.toggle(
-            "open"
-          );
-
-        } else {
-
-          openRankPilotLogin();
-
-        }
-
-      }
-    );
-
-
-    /*
-      Acciones menú.
-    */
-
-    menu
-      .querySelectorAll(
-        "button[data-action]"
-      )
-      .forEach(
-        button => {
-
-          button.addEventListener(
-            "click",
-            function() {
-
-              const action =
-                button.dataset.action;
-
-
-              if (
-                action ===
-                "dashboard"
-              ) {
-
-                menu.classList.remove(
-                  "open"
+                return Number(
+                    analysis.score
                 );
 
-                renderDashboard();
+            })
+            .filter(function(score) {
 
-              }
+                return Number.isFinite(score);
 
+            });
 
-              if (
-                action ===
-                "projects"
-              ) {
 
-                menu.classList.remove(
-                  "open"
-                );
+    const average =
+        scores.length
+            ? Math.round(
+                scores.reduce(
+                    function(a, b) {
+                        return a + b;
+                    },
+                    0
+                ) / scores.length
+            )
+            : 0;
 
-                renderDashboard();
 
-              }
+    container.innerHTML = `
 
+        <h1 class="dashboard-title">
+            Dashboard
+        </h1>
 
-              if (
-                action ===
-                "history"
-              ) {
+        <p class="dashboard-subtitle">
+            Gestiona tus proyectos y evolución SEO.
+        </p>
 
-                menu.classList.remove(
-                  "open"
-                );
 
-                renderDashboard();
+        <div class="dashboard-stats">
 
-              }
+            <div class="dashboard-stat">
 
+                <span>
+                    Proyectos
+                </span>
 
-              if (
-                action ===
-                "account"
-              ) {
+                <strong>
+                    ${projects.length}
+                </strong>
 
-                menu.classList.remove(
-                  "open"
-                );
+            </div>
 
-                openRankPilotAccount();
 
-              }
+            <div class="dashboard-stat">
 
+                <span>
+                    Análisis
+                </span>
 
-              if (
-                action ===
-                "logout"
-              ) {
+                <strong>
+                    ${analyses}
+                </strong>
 
-                logoutRankPilot();
+            </div>
 
-              }
 
-            }
-          );
+            <div class="dashboard-stat">
 
-        }
-      );
+                <span>
+                    Score medio
+                </span>
 
+                <strong>
+                    ${average || "—"}
+                </strong>
 
-    /*
-      Cerrar menú al hacer click fuera.
-    */
-
-    document.addEventListener(
-      "click",
-      function(event) {
-
-        if (
-          !wrapper.contains(
-            event.target
-          )
-        ) {
-
-          menu.classList.remove(
-            "open"
-          );
-
-        }
-
-      }
-    );
-
-
-    injectHeaderAccountStyles();
-
-    updateHeaderAccount();
-
-  }
-
-
-  if (
-    document.readyState ===
-    "loading"
-  ) {
-
-    document.addEventListener(
-      "DOMContentLoaded",
-      start
-    );
-
-  } else {
-
-    start();
-
-  }
-
-})();
-
-
-function updateHeaderAccount() {
-
-  const loginBtn =
-    document.getElementById(
-      "loginBtn"
-    );
-
-
-  if (!loginBtn) {
-    return;
-  }
-
-
-  const account =
-    getRankPilotAccount();
-
-
-  if (
-    account.loggedIn
-  ) {
-
-    const firstName =
-      (
-        account.name ||
-        "Cuenta"
-      )
-        .trim()
-        .split(" ")[0];
-
-
-    loginBtn.innerHTML = `
-
-      ${escapeHtml(firstName)}
-
-      <span
-        style="
-          font-size:11px;
-          margin-left:4px;
-        "
-      >
-        ▾
-      </span>
-
-    `;
-
-  } else {
-
-    loginBtn.textContent =
-      "Iniciar sesión";
-
-  }
-
-}
-
-
-function injectHeaderAccountStyles() {
-
-  if (
-    document.getElementById(
-      "rankpilotHeaderAccountStyles"
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  const style =
-    document.createElement(
-      "style"
-    );
-
-
-  style.id =
-    "rankpilotHeaderAccountStyles";
-
-
-  style.textContent = `
-
-    .rankpilot-account-wrapper {
-
-      position: relative;
-
-      display: inline-flex;
-
-    }
-
-
-    .rankpilot-account-menu {
-
-      position: absolute;
-
-      top: calc(100% + 10px);
-
-      right: 0;
-
-      width: 210px;
-
-      background: white;
-
-      border:
-        1px solid #e5e7eb;
-
-      border-radius: 12px;
-
-      padding: 7px;
-
-      box-shadow:
-        0 15px 40px
-        rgba(0,0,0,.15);
-
-      display: none;
-
-      z-index: 9999;
-
-    }
-
-
-    .rankpilot-account-menu.open {
-
-      display: block;
-
-    }
-
-
-    .rankpilot-account-menu button {
-
-      width: 100%;
-
-      border: none;
-
-      background: transparent;
-
-      text-align: left;
-
-      padding: 11px 12px;
-
-      border-radius: 8px;
-
-      cursor: pointer;
-
-      font-size: 14px;
-
-    }
-
-
-    .rankpilot-account-menu button:hover {
-
-      background: #f3f4f6;
-
-    }
-
-
-    .rankpilot-account-menu .logout {
-
-      color: #b91c1c;
-
-    }
-
-
-    .account-menu-divider {
-
-      height: 1px;
-
-      background: #e5e7eb;
-
-      margin: 5px 0;
-
-    }
-
-  `;
-
-
-  document.head.appendChild(
-    style
-  );
-
-}
-
-
-/* =========================================================
-   LOGIN MODAL
-========================================================= */
-
-function openRankPilotLogin() {
-
-  let modal =
-    document.getElementById(
-      "rankpilotLoginModal"
-    );
-
-
-  if (!modal) {
-
-    modal =
-      document.createElement(
-        "div"
-      );
-
-
-    modal.id =
-      "rankpilotLoginModal";
-
-
-    modal.className =
-      "rankpilot-login-modal";
-
-
-    modal.innerHTML = `
-
-      <div class="rankpilot-login-overlay">
-
-        <div class="rankpilot-login-card">
-
-          <button
-            class="rankpilot-login-close"
-            onclick="closeRankPilotLogin()"
-          >
-            ×
-          </button>
-
-
-          <span class="rankpilot-login-label">
-            RANKPILOT
-          </span>
-
-
-          <h2>
-            Inicia sesión
-          </h2>
-
-
-          <p>
-            Accede a tu espacio de trabajo SEO.
-          </p>
-
-
-          <form
-            id="rankpilotLoginForm"
-          >
-
-            <input
-              id="rankpilotLoginName"
-              placeholder="Nombre"
-              required
-            />
-
-
-            <input
-              id="rankpilotLoginEmail"
-              type="email"
-              placeholder="Email"
-              required
-            />
-
-
-            <input
-              id="rankpilotLoginPassword"
-              type="password"
-              placeholder="Contraseña"
-              required
-            />
-
-
-            <button
-              type="submit"
-            >
-              Entrar
-            </button>
-
-          </form>
-
-
-          <small>
-            Esta versión utiliza almacenamiento local.
-            La autenticación real se conectará al backend posteriormente.
-          </small>
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    document.body.appendChild(
-      modal
-    );
-
-
-    document
-      .getElementById(
-        "rankpilotLoginForm"
-      )
-      .addEventListener(
-        "submit",
-        function(event) {
-
-          event.preventDefault();
-
-
-          const name =
-            document
-              .getElementById(
-                "rankpilotLoginName"
-              )
-              .value
-              .trim();
-
-
-          const email =
-            document
-              .getElementById(
-                "rankpilotLoginEmail"
-              )
-              .value
-              .trim();
-
-
-          const password =
-            document
-              .getElementById(
-                "rankpilotLoginPassword"
-              )
-              .value;
-
-
-          if (
-            !name ||
-            !email ||
-            !password
-          ) {
-
-            return;
-
-          }
-
-
-          const existing =
-            getRankPilotAccount();
-
-
-          saveRankPilotAccount({
-
-            loggedIn: true,
-
-            name: name,
-
-            email: email,
-
-            plan:
-              existing.plan ||
-              "Starter"
-
-          });
-
-
-          closeRankPilotLogin();
-
-          updateHeaderAccount();
-
-        }
-      );
-
-
-    injectLoginStyles();
-
-  }
-
-
-  modal.style.display =
-    "block";
-
-
-  document.body.style.overflow =
-    "hidden";
-
-}
-
-
-function closeRankPilotLogin() {
-
-  const modal =
-    document.getElementById(
-      "rankpilotLoginModal"
-    );
-
-
-  if (modal) {
-
-    modal.style.display =
-      "none";
-
-  }
-
-
-  document.body.style.overflow =
-    "";
-
-}
-
-
-function injectLoginStyles() {
-
-  if (
-    document.getElementById(
-      "rankpilotLoginStyles"
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  const style =
-    document.createElement(
-      "style"
-    );
-
-
-  style.id =
-    "rankpilotLoginStyles";
-
-
-  style.textContent = `
-
-    .rankpilot-login-modal {
-
-      position: fixed;
-
-      inset: 0;
-
-      z-index: 11000;
-
-    }
-
-
-    .rankpilot-login-overlay {
-
-      position: fixed;
-
-      inset: 0;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-
-      padding: 20px;
-
-      background:
-        rgba(15,23,42,.65);
-
-    }
-
-
-    .rankpilot-login-card {
-
-      position: relative;
-
-      width: min(430px,100%);
-
-      background: white;
-
-      border-radius: 20px;
-
-      padding: 35px;
-
-      box-shadow:
-        0 30px 80px
-        rgba(0,0,0,.25);
-
-    }
-
-
-    .rankpilot-login-close {
-
-      position: absolute;
-
-      top: 12px;
-
-      right: 16px;
-
-      border: none;
-
-      background: none;
-
-      font-size: 28px;
-
-      cursor: pointer;
-
-    }
-
-
-    .rankpilot-login-label {
-
-      color: #6366f1;
-
-      font-size: 12px;
-
-      font-weight: 800;
-
-      letter-spacing: .12em;
-
-    }
-
-
-    .rankpilot-login-card h2 {
-
-      margin-bottom: 6px;
-
-    }
-
-
-    .rankpilot-login-card p {
-
-      color: #6b7280;
-
-    }
-
-
-    .rankpilot-login-card form {
-
-      display: flex;
-
-      flex-direction: column;
-
-      gap: 12px;
-
-      margin-top: 25px;
-
-    }
-
-
-    .rankpilot-login-card input {
-
-      width: 100%;
-
-      padding: 13px;
-
-      border:
-        1px solid #d1d5db;
-
-      border-radius: 9px;
-
-      font-size: 14px;
-
-    }
-
-
-    .rankpilot-login-card form button {
-
-      border: none;
-
-      background: #111827;
-
-      color: white;
-
-      padding: 13px;
-
-      border-radius: 9px;
-
-      font-weight: 700;
-
-      cursor: pointer;
-
-    }
-
-
-    .rankpilot-login-card small {
-
-      display: block;
-
-      margin-top: 20px;
-
-      color: #6b7280;
-
-      line-height: 1.5;
-
-    }
-
-  `;
-
-
-  document.head.appendChild(
-    style
-  );
-
-}
-
-
-/* =========================================================
-   MI CUENTA
-========================================================= */
-
-function openRankPilotAccount() {
-
-  let modal =
-    document.getElementById(
-      "rankpilotAccountModal"
-    );
-
-
-  if (!modal) {
-
-    modal =
-      document.createElement(
-        "div"
-      );
-
-
-    modal.id =
-      "rankpilotAccountModal";
-
-
-    modal.className =
-      "rankpilot-account-modal";
-
-
-    document.body.appendChild(
-      modal
-    );
-
-  }
-
-
-  const account =
-    getRankPilotAccount();
-
-
-  const currentPlan =
-    account.plan ||
-    "Starter";
-
-
-  modal.innerHTML = `
-
-    <div class="rankpilot-modal-overlay">
-
-      <div class="rankpilot-modal-card">
-
-        <button
-          class="rankpilot-close"
-          onclick="closeRankPilotAccount()"
-        >
-          ×
-        </button>
-
-
-        <div class="rankpilot-dashboard-header">
-
-          <span>
-            MI CUENTA
-          </span>
-
-          <h2>
-            ${escapeHtml(
-              account.name ||
-              "Tu cuenta"
-            )}
-          </h2>
-
-          <p>
-            ${escapeHtml(
-              account.email ||
-              ""
-            )}
-          </p>
-
-        </div>
-
-
-        <div class="rankpilot-account-current">
-
-          <span>
-            PLAN ACTUAL
-          </span>
-
-          <strong>
-            ${escapeHtml(
-              currentPlan
-            )}
-          </strong>
+            </div>
 
         </div>
 
 
         <h3>
-          Planes de RankPilot
+            Tus proyectos
         </h3>
 
 
-        <div class="rankpilot-plan-grid">
+        ${
+            projects.length
+                ? `
+                    <div class="dashboard-projects">
 
-          ${Object
-            .values(
-              RANKPILOT_PLANS
-            )
-            .map(
-              plan => `
+                        ${
+                            projects
+                                .map(
+                                    renderProjectCard
+                                )
+                                .join("")
+                        }
 
-                <div
-                  class="rankpilot-plan-card ${
-                    currentPlan ===
-                    plan.name
-                      ? "active"
-                      : ""
-                  }"
-                >
+                    </div>
+                `
+                : `
+                    <div class="dashboard-empty">
 
-                  <span>
-                    ${escapeHtml(
-                      plan.name
-                    )}
-                  </span>
+                        <p>
+                            Todavía no tienes proyectos.
+                        </p>
 
-                  <strong>
-                    ${plan.price}€
-                    <small>/mes</small>
-                  </strong>
+                        <button
+                            class="dashboard-action primary"
+                            onclick="
+                                openRankPilotDashboard('projects')
+                            "
+                        >
+                            Crear primer proyecto
+                        </button>
 
-                  <p>
-                    ${escapeHtml(
-                      plan.description
-                    )}
-                  </p>
+                    </div>
+                `
+        }
 
-                  <button
-                    onclick="rankPilotSelectPlan('${plan.name}')"
-                  >
-                    ${
-                      currentPlan ===
-                      plan.name
-                        ? "Plan actual"
-                        : "Seleccionar"
-                    }
-                  </button>
-
-                </div>
-
-              `
-            )
-            .join("")}
-
-        </div>
-
-
-        <div class="rankpilot-account-note">
-
-          Los planes y pagos reales se conectarán
-          posteriormente mediante backend y Stripe.
-
-        </div>
-
-      </div>
-
-    </div>
-
-  `;
-
-
-  modal.style.display =
-    "block";
-
-
-  document.body.style.overflow =
-    "hidden";
-
-
-  injectAccountStyles();
+    `;
 
 }
 
 
-function closeRankPilotAccount() {
+function renderProjectCard(
+    project
+) {
 
-  const modal =
-    document.getElementById(
-      "rankpilotAccountModal"
+    const analyses =
+        Array.isArray(project.analyses)
+            ? project.analyses
+            : [];
+
+
+    const score =
+        project.lastScore ??
+        (
+            analyses[0]
+                ? analyses[0].score
+                : "—"
+        );
+
+
+    return `
+
+        <div class="dashboard-project">
+
+            <h4>
+                ${escapeHtml(
+                    project.name
+                )}
+            </h4>
+
+            <div class="dashboard-project-url">
+                ${escapeHtml(
+                    project.url
+                )}
+            </div>
+
+            <div class="dashboard-project-score">
+                ${
+                    score === "—"
+                        ? "—"
+                        : score + "/100"
+                }
+            </div>
+
+            <div class="dashboard-actions">
+
+                <button
+                    class="dashboard-action primary"
+                    onclick="
+                        analyzeRankPilotProject(
+                            '${escapeHtml(project.id)}'
+                        )
+                    "
+                >
+                    Analizar
+                </button>
+
+                <button
+                    class="dashboard-action"
+                    onclick="
+                        openRankPilotProject(
+                            '${escapeHtml(project.id)}'
+                        )
+                    "
+                >
+                    Ver historial
+                </button>
+
+                <button
+                    class="dashboard-action danger"
+                    onclick="
+                        deleteRankPilotProject(
+                            '${escapeHtml(project.id)}'
+                        )
+                    "
+                >
+                    Eliminar
+                </button>
+
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+/* =========================================================
+   PROJECTS SECTION
+========================================================= */
+
+function renderProjectsSection(
+    container
+) {
+
+    const projects =
+        getRankPilotProjects();
+
+
+    container.innerHTML = `
+
+        <h1 class="dashboard-title">
+            Mis proyectos
+        </h1>
+
+        <p class="dashboard-subtitle">
+            Organiza tus webs y conserva sus análisis SEO.
+        </p>
+
+
+        <div class="dashboard-create">
+
+            <h3>
+                Crear proyecto
+            </h3>
+
+            <div class="dashboard-create-grid">
+
+                <input
+                    id="rankpilotNewProjectName"
+                    type="text"
+                    placeholder="Nombre del proyecto"
+                >
+
+                <input
+                    id="rankpilotNewProjectUrl"
+                    type="text"
+                    placeholder="https://tusitio.com"
+                >
+
+                <button
+                    class="dashboard-action primary"
+                    onclick="
+                        createRankPilotProject()
+                    "
+                >
+                    Crear
+                </button>
+
+            </div>
+
+        </div>
+
+
+        ${
+            projects.length
+                ? `
+                    <div class="dashboard-projects">
+
+                        ${
+                            projects
+                                .map(
+                                    renderProjectCard
+                                )
+                                .join("")
+                        }
+
+                    </div>
+                `
+                : `
+                    <div class="dashboard-empty">
+                        No tienes proyectos todavía.
+                    </div>
+                `
+        }
+
+    `;
+
+}
+
+
+function createRankPilotProject() {
+
+    const nameInput =
+        document.getElementById(
+            "rankpilotNewProjectName"
+        );
+
+
+    const urlInput =
+        document.getElementById(
+            "rankpilotNewProjectUrl"
+        );
+
+
+    const name =
+        nameInput?.value.trim();
+
+
+    const url =
+        normalizeUrl(
+            urlInput?.value.trim()
+        );
+
+
+    if (!name) {
+
+        alert(
+            "Introduce un nombre para el proyecto."
+        );
+
+        return;
+
+    }
+
+
+    if (!url) {
+
+        alert(
+            "Introduce una URL válida."
+        );
+
+        return;
+
+    }
+
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const project = {
+
+        id:
+            "project_" +
+            Date.now(),
+
+        name:
+            name,
+
+        url:
+            url,
+
+        createdAt:
+            new Date().toISOString(),
+
+        updatedAt:
+            new Date().toISOString(),
+
+        lastScore:
+            null,
+
+        analyses:
+            []
+
+    };
+
+
+    projects.unshift(
+        project
     );
 
 
-  if (modal) {
-
-    modal.style.display =
-      "none";
-
-  }
+    saveRankPilotProjects(
+        projects
+    );
 
 
-  document.body.style.overflow =
-    "";
+    setActiveProjectId(
+        project.id
+    );
+
+
+    renderProjectsSection(
+        document.getElementById(
+            "rankpilotDashboardContent"
+        )
+    );
+
+}
+
+
+function analyzeRankPilotProject(
+    projectId
+) {
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const project =
+        projects.find(function(item) {
+
+            return item.id === projectId;
+
+        });
+
+
+    if (!project) {
+        return;
+    }
+
+
+    setActiveProjectId(
+        project.id
+    );
+
+
+    closeRankPilotDashboard();
+
+
+    if (input) {
+
+        input.value =
+            project.url;
+
+    }
+
+
+    if (form) {
+
+        form.scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+        });
+
+
+        setTimeout(
+            function() {
+
+                form.dispatchEvent(
+                    new Event(
+                        "submit",
+                        {
+                            bubbles:true,
+                            cancelable:true
+                        }
+                    )
+                );
+
+            },
+            300
+        );
+
+    }
+
+}
+
+
+window.analyzeRankPilotProject =
+    analyzeRankPilotProject;
+
+
+/* =========================================================
+   PROJECT DETAIL
+========================================================= */
+
+function openRankPilotProject(
+    projectId
+) {
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const project =
+        projects.find(function(item) {
+
+            return item.id === projectId;
+
+        });
+
+
+    if (!project) {
+        return;
+    }
+
+
+    const container =
+        document.getElementById(
+            "rankpilotDashboardContent"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    setActiveProjectId(
+        project.id
+    );
+
+
+    const analyses =
+        Array.isArray(project.analyses)
+            ? project.analyses
+            : [];
+
+
+    container.innerHTML = `
+
+        <button
+            class="dashboard-action"
+            onclick="
+                openRankPilotDashboard('projects')
+            "
+        >
+            ← Volver a proyectos
+        </button>
+
+
+        <h1
+            class="dashboard-title"
+            style="margin-top:25px;"
+        >
+            ${escapeHtml(project.name)}
+        </h1>
+
+        <p class="dashboard-subtitle">
+            ${escapeHtml(project.url)}
+        </p>
+
+
+        <div class="dashboard-stats">
+
+            <div class="dashboard-stat">
+
+                <span>
+                    Último score
+                </span>
+
+                <strong>
+                    ${
+                        project.lastScore === null
+                            ? "—"
+                            : project.lastScore
+                    }
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-stat">
+
+                <span>
+                    Análisis
+                </span>
+
+                <strong>
+                    ${analyses.length}
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-stat">
+
+                <span>
+                    Última actualización
+                </span>
+
+                <strong
+                    style="font-size:15px;"
+                >
+                    ${project.updatedAt
+                        ? new Date(
+                            project.updatedAt
+                        ).toLocaleDateString(
+                            "es-ES"
+                        )
+                        : "—"
+                    }
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        <div style="margin-bottom:25px;">
+
+            <button
+                class="dashboard-action primary"
+                onclick="
+                    analyzeRankPilotProject(
+                        '${escapeHtml(project.id)}'
+                    )
+                "
+            >
+                Analizar ahora
+            </button>
+
+        </div>
+
+
+        <h3>
+            Historial
+        </h3>
+
+
+        ${
+            analyses.length
+                ? `
+
+                    <div class="dashboard-history">
+
+                        ${
+                            analyses
+                                .map(function(analysis) {
+
+                                    return `
+
+                                        <div
+                                            class="dashboard-history-row"
+                                        >
+
+                                            <div>
+
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        new Date(
+                                                            analysis.createdAt
+                                                        ).toLocaleDateString(
+                                                            "es-ES"
+                                                        )
+                                                    )}
+                                                </strong>
+
+                                                <div
+                                                    style="
+                                                        color:#64748b;
+                                                        font-size:13px;
+                                                    "
+                                                >
+                                                    ${escapeHtml(
+                                                        analysis.url
+                                                    )}
+                                                </div>
+
+                                            </div>
+
+
+                                            <strong>
+                                                ${analysis.score}/100
+                                            </strong>
+
+
+                                            <span>
+                                                ${escapeHtml(
+                                                    getStatus(
+                                                        analysis.score
+                                                    )
+                                                )}
+                                            </span>
+
+
+                                            <button
+                                                class="dashboard-action"
+                                                onclick="
+                                                    restoreRankPilotAnalysis(
+                                                        '${escapeHtml(
+                                                            project.id
+                                                        )}',
+                                                        '${escapeHtml(
+                                                            analysis.id
+                                                        )}'
+                                                    )
+                                                "
+                                            >
+                                                Ver análisis
+                                            </button>
+
+                                        </div>
+
+                                    `;
+
+                                })
+                                .join("")
+                        }
+
+                    </div>
+
+                `
+                : `
+                    <div class="dashboard-empty">
+
+                        Todavía no hay análisis guardados
+                        para este proyecto.
+
+                    </div>
+                `
+        }
+
+    `;
+
+}
+
+
+window.openRankPilotProject =
+    openRankPilotProject;
+
+
+/* =========================================================
+   RESTORE ANALYSIS
+========================================================= */
+
+function restoreRankPilotAnalysis(
+    projectId,
+    analysisId
+) {
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const project =
+        projects.find(function(item) {
+
+            return item.id === projectId;
+
+        });
+
+
+    if (!project) {
+        return;
+    }
+
+
+    const analysis =
+        (
+            project.analyses || []
+        ).find(function(item) {
+
+            return item.id === analysisId;
+
+        });
+
+
+    if (!analysis || !analysis.data) {
+        return;
+    }
+
+
+    currentData =
+        analysis.data;
+
+
+    currentMainUrl =
+        analysis.url ||
+        currentData.finalUrl ||
+        currentData.url ||
+        "";
+
+
+    closeRankPilotDashboard();
+
+
+    if (message) {
+
+        message.scrollIntoView({
+            behavior:"smooth",
+            block:"start"
+        });
+
+    }
+
+
+    renderResults(
+        currentData,
+        {
+            save:false
+        }
+    );
+
+}
+
+
+window.restoreRankPilotAnalysis =
+    restoreRankPilotAnalysis;
+
+
+/* =========================================================
+   DELETE PROJECT
+========================================================= */
+
+function deleteRankPilotProject(
+    projectId
+) {
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const project =
+        projects.find(function(item) {
+
+            return item.id === projectId;
+
+        });
+
+
+    if (!project) {
+        return;
+    }
+
+
+    const confirmed =
+        confirm(
+            `¿Eliminar el proyecto "${project.name}"?`
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    const remaining =
+        projects.filter(function(item) {
+
+            return item.id !== projectId;
+
+        });
+
+
+    saveRankPilotProjects(
+        remaining
+    );
+
+
+    if (
+        getActiveProjectId() === projectId
+    ) {
+
+        setActiveProjectId(
+            null
+        );
+
+    }
+
+
+    renderProjectsSection(
+        document.getElementById(
+            "rankpilotDashboardContent"
+        )
+    );
+
+}
+
+
+window.deleteRankPilotProject =
+    deleteRankPilotProject;
+
+
+/* =========================================================
+   HISTORY SECTION
+========================================================= */
+
+function renderHistorySection(
+    container
+) {
+
+    const projects =
+        getRankPilotProjects();
+
+
+    const analyses =
+        projects.flatMap(
+            function(project) {
+
+                return (
+                    project.analyses || []
+                ).map(
+                    function(analysis) {
+
+                        return {
+
+                            ...analysis,
+
+                            projectName:
+                                project.name,
+
+                            projectId:
+                                project.id
+
+                        };
+
+                    }
+                );
+
+            }
+        );
+
+
+    analyses.sort(
+        function(a, b) {
+
+            return new Date(
+                b.createdAt
+            ) - new Date(
+                a.createdAt
+            );
+
+        }
+    );
+
+
+    container.innerHTML = `
+
+        <h1 class="dashboard-title">
+            Historial
+        </h1>
+
+        <p class="dashboard-subtitle">
+            Consulta la evolución de tus análisis SEO.
+        </p>
+
+
+        ${
+            analyses.length
+                ? `
+
+                    <div class="dashboard-history">
+
+                        ${
+                            analyses
+                                .map(function(analysis) {
+
+                                    return `
+
+                                        <div
+                                            class="dashboard-history-row"
+                                        >
+
+                                            <div>
+
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        analysis.projectName
+                                                    )}
+                                                </strong>
+
+                                                <div
+                                                    style="
+                                                        color:#64748b;
+                                                        font-size:13px;
+                                                    "
+                                                >
+                                                    ${new Date(
+                                                        analysis.createdAt
+                                                    ).toLocaleDateString(
+                                                        "es-ES"
+                                                    )}
+                                                </div>
+
+                                            </div>
+
+
+                                            <strong>
+                                                ${analysis.score}/100
+                                            </strong>
+
+
+                                            <span>
+                                                ${escapeHtml(
+                                                    getStatus(
+                                                        analysis.score
+                                                    )
+                                                )}
+                                            </span>
+
+
+                                            <button
+                                                class="dashboard-action"
+                                                onclick="
+                                                    restoreRankPilotAnalysis(
+                                                        '${escapeHtml(
+                                                            analysis.projectId
+                                                        )}',
+                                                        '${escapeHtml(
+                                                            analysis.id
+                                                        )}'
+                                                    )
+                                                "
+                                            >
+                                                Ver análisis
+                                            </button>
+
+                                        </div>
+
+                                    `;
+
+                                })
+                                .join("")
+                        }
+
+                    </div>
+
+                `
+                : `
+                    <div class="dashboard-empty">
+
+                        Todavía no tienes análisis
+                        guardados.
+
+                    </div>
+                `
+        }
+
+    `;
+
+}
+
+
+/* =========================================================
+   ACCOUNT / PLANS
+========================================================= */
+
+const RANKPILOT_ACCOUNT_KEY =
+    "rankpilot_account_v1";
+
+
+function getRankPilotAccount() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(
+                RANKPILOT_ACCOUNT_KEY
+            ) || "null"
+        );
+
+    } catch (error) {
+
+        return null;
+
+    }
+
+}
+
+
+function saveRankPilotAccount(
+    account
+) {
+
+    localStorage.setItem(
+        RANKPILOT_ACCOUNT_KEY,
+        JSON.stringify(account)
+    );
+
+}
+
+
+function renderAccountSection(
+    container
+) {
+
+    const account =
+        getRankPilotAccount();
+
+
+    const name =
+        account?.name ||
+        "Usuario";
+
+
+    const email =
+        account?.email ||
+        "Sin email";
+
+
+    const plan =
+        account?.plan ||
+        "starter";
+
+
+    container.innerHTML = `
+
+        <h1 class="dashboard-title">
+            Mi cuenta
+        </h1>
+
+        <p class="dashboard-subtitle">
+            Gestiona tu perfil y plan de RankPilot.
+        </p>
+
+
+        <div class="dashboard-create">
+
+            <h3>
+                Perfil
+            </h3>
+
+            <p>
+                <strong>
+                    ${escapeHtml(name)}
+                </strong>
+            </p>
+
+            <p>
+                ${escapeHtml(email)}
+            </p>
+
+            <p>
+                Plan actual:
+                <strong>
+                    ${escapeHtml(
+                        getPlanName(plan)
+                    )}
+                </strong>
+            </p>
+
+        </div>
+
+
+        <h3>
+            Planes
+        </h3>
+
+
+        <div class="dashboard-projects">
+
+            ${renderPlanCard(
+                "starter",
+                "Starter",
+                "0 €",
+                "Para empezar"
+            )}
+
+            ${renderPlanCard(
+                "pro",
+                "Pro",
+                "19 €/mes",
+                "Para profesionales"
+            )}
+
+            ${renderPlanCard(
+                "agency",
+                "Agency",
+                "49 €/mes",
+                "Para agencias"
+            )}
+
+        </div>
+
+    `;
+
+}
+
+
+function getPlanName(
+    plan
+) {
+
+    const names = {
+
+        starter: "Starter",
+
+        pro: "Pro",
+
+        agency: "Agency"
+
+    };
+
+
+    return names[plan] ||
+        "Starter";
+
+}
+
+
+function renderPlanCard(
+    plan,
+    name,
+    price,
+    description
+) {
+
+    const account =
+        getRankPilotAccount();
+
+
+    const active =
+        account?.plan === plan;
+
+
+    return `
+
+        <div class="dashboard-project">
+
+            <h4>
+                ${escapeHtml(name)}
+            </h4>
+
+            <div
+                style="
+                    color:#64748b;
+                    margin-bottom:8px;
+                "
+            >
+                ${escapeHtml(description)}
+            </div>
+
+            <div class="dashboard-project-score">
+                ${escapeHtml(price)}
+            </div>
+
+            <button
+                class="
+                    dashboard-action
+                    ${active ? "primary" : ""}
+                "
+                onclick="
+                    rankPilotSelectPlan(
+                        '${plan}'
+                    )
+                "
+            >
+                ${
+                    active
+                        ? "Plan actual"
+                        : "Seleccionar"
+                }
+            </button>
+
+        </div>
+
+    `;
 
 }
 
 
 function rankPilotSelectPlan(
-  planName
+    plan
 ) {
 
-  if (
-    !RANKPILOT_PLANS[
-      planName
-    ]
-  ) {
-
-    return;
-
-  }
+    const account =
+        getRankPilotAccount();
 
 
-  const account =
-    getRankPilotAccount();
+    if (!account) {
+
+        alert(
+            "Primero crea una cuenta."
+        );
+
+        return;
+
+    }
 
 
-  account.plan =
-    planName;
+    account.plan =
+        plan;
 
 
-  saveRankPilotAccount(
-    account
-  );
-
-
-  closeRankPilotAccount();
-
-  openRankPilotAccount();
-
-}
-
-
-function injectAccountStyles() {
-
-  if (
-    document.getElementById(
-      "rankpilotAccountStyles"
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  const style =
-    document.createElement(
-      "style"
+    saveRankPilotAccount(
+        account
     );
 
 
-  style.id =
-    "rankpilotAccountStyles";
-
-
-  style.textContent = `
-
-    .rankpilot-account-current {
-
-      display: flex;
-
-      justify-content: space-between;
-
-      align-items: center;
-
-      padding: 18px;
-
-      background: #f8fafc;
-
-      border-radius: 12px;
-
-      margin: 20px 0 30px;
-
-    }
-
-
-    .rankpilot-account-current span {
-
-      color: #6b7280;
-
-      font-size: 12px;
-
-      font-weight: 700;
-
-    }
-
-
-    .rankpilot-plan-grid {
-
-      display: grid;
-
-      grid-template-columns:
-        repeat(3,1fr);
-
-      gap: 15px;
-
-      margin-top: 15px;
-
-    }
-
-
-    .rankpilot-plan-card {
-
-      border:
-        1px solid #e5e7eb;
-
-      border-radius: 14px;
-
-      padding: 20px;
-
-    }
-
-
-    .rankpilot-plan-card.active {
-
-      border:
-        2px solid #6366f1;
-
-    }
-
-
-    .rankpilot-plan-card > span {
-
-      font-weight: 800;
-
-    }
-
-
-    .rankpilot-plan-card > strong {
-
-      display: block;
-
-      font-size: 30px;
-
-      margin: 12px 0;
-
-    }
-
-
-    .rankpilot-plan-card small {
-
-      font-size: 13px;
-
-      font-weight: 400;
-
-    }
-
-
-    .rankpilot-plan-card p {
-
-      color: #6b7280;
-
-      min-height: 45px;
-
-    }
-
-
-    .rankpilot-plan-card button {
-
-      width: 100%;
-
-      padding: 10px;
-
-      border: none;
-
-      background: #111827;
-
-      color: white;
-
-      border-radius: 8px;
-
-      cursor: pointer;
-
-    }
-
-
-    .rankpilot-account-note {
-
-      margin-top: 25px;
-
-      color: #6b7280;
-
-      font-size: 13px;
-
-      line-height: 1.5;
-
-    }
-
-
-    @media(max-width:750px) {
-
-      .rankpilot-plan-grid {
-
-        grid-template-columns: 1fr;
-
-      }
-
-    }
-
-  `;
-
-
-  document.head.appendChild(
-    style
-  );
+    renderAccountSection(
+        document.getElementById(
+            "rankpilotDashboardContent"
+        )
+    );
 
 }
+
+
+window.rankPilotSelectPlan =
+    rankPilotSelectPlan;
+
+
+window.openRankPilotAccount =
+    function() {
+
+        openRankPilotDashboard(
+            "account"
+        );
+
+    };
 
 
 /* =========================================================
-   LOGOUT
+   ACCOUNT HEADER
 ========================================================= */
 
-function logoutRankPilot() {
+function initializeHeaderAccount() {
 
-  const account =
-    getRankPilotAccount();
-
-
-  saveRankPilotAccount({
-
-    loggedIn: false,
-
-    name:
-      account.name || "",
-
-    email:
-      account.email || "",
-
-    plan:
-      account.plan ||
-      "Starter"
-
-  });
+    const loginBtn =
+        document.getElementById(
+            "loginBtn"
+        );
 
 
-  const menu =
-    document.getElementById(
-      "rankpilotAccountMenu"
-    );
+    if (!loginBtn) {
 
+        console.warn(
+            "RankPilot: #loginBtn no encontrado."
+        );
 
-  if (menu) {
+        return;
 
-    menu.classList.remove(
-      "open"
-    );
+    }
 
-  }
-
-
-  updateHeaderAccount();
-
-}
-
-
-/* =========================================================
-   FECHA
-========================================================= */
-
-function formatDate(
-  date
-) {
-
-  try {
-
-    return new Date(
-      date
-    ).toLocaleDateString(
-      "es-ES",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      }
-    );
-
-  } catch {
-
-    return "";
-
-  }
-
-}
-
-
-/* =========================================================
-   INICIALIZACIÓN
-========================================================= */
-
-document.addEventListener(
-  "DOMContentLoaded",
-  function() {
-
-    createDashboardButton();
 
     /*
-      Limpieza definitiva de cualquier
-      botón flotante antiguo.
-    */
+     * Eliminar cualquier sistema antiguo.
+     */
 
-    const oldButton =
-      document.getElementById(
-        "rankpilotAccountButton"
-      );
+    [
+        "rankpilotAccountButton",
+        "rankpilotAccountMenu",
+        "rankpilotAccountModal",
+        "rankpilotLoginModal",
+        "rankpilotRegisterModal"
+    ]
+        .forEach(function(id) {
 
+            const element =
+                document.getElementById(id);
 
-    if (oldButton) {
-      oldButton.remove();
-    }
+            if (element) {
+                element.remove();
+            }
+
+        });
 
 
     document
-      .querySelectorAll(
-        ".rankpilot-floating-login, " +
-        ".rankpilot-floating-account, " +
-        "#rankpilotAccountButtonContainer"
-      )
-      .forEach(
-        element =>
-          element.remove()
-      );
+        .querySelectorAll(
+            ".rankpilot-floating-login, " +
+            ".rankpilot-login-floating"
+        )
+        .forEach(function(element) {
 
-  }
-);
+            element.remove();
 
-/* =========================================================
-   RANKPILOT — CREAR CUENTA
-   ========================================================= */
+        });
 
-(function () {
 
-    let registerModalCreated = false;
+    /*
+     * Wrapper
+     */
 
-    /* =====================================================
-       BUSCAR EL MENÚ DE CUENTA
-    ===================================================== */
+    const wrapper =
+        document.createElement("div");
 
-    function getAccountMenu() {
 
-        return (
-            document.getElementById("rankpilotAccountMenu") ||
-            document.querySelector(".rankpilot-account-menu") ||
-            document.querySelector("[data-rankpilot-account-menu]")
+    wrapper.className =
+        "rankpilot-account-wrapper";
+
+
+    loginBtn.parentNode.insertBefore(
+        wrapper,
+        loginBtn
+    );
+
+
+    wrapper.appendChild(
+        loginBtn
+    );
+
+
+    /*
+     * Estilos
+     */
+
+    if (
+        !document.getElementById(
+            "rankpilotHeaderAccountStyles"
+        )
+    ) {
+
+        const style =
+            document.createElement("style");
+
+
+        style.id =
+            "rankpilotHeaderAccountStyles";
+
+
+        style.textContent = `
+
+            .rankpilot-account-wrapper {
+                position:relative;
+                display:inline-flex;
+                align-items:center;
+            }
+
+            #rankpilotAccountMenu {
+                position:absolute;
+                top:calc(100% + 10px);
+                right:0;
+                width:225px;
+                padding:7px;
+                background:#fff;
+                border:1px solid #e5e7eb;
+                border-radius:14px;
+                box-shadow:
+                    0 15px 40px rgba(15,23,42,.15);
+                z-index:99990;
+                display:none;
+            }
+
+            #rankpilotAccountMenu.open {
+                display:block;
+            }
+
+            .rankpilot-account-menu-item {
+                width:100%;
+                display:flex;
+                align-items:center;
+                gap:10px;
+                padding:11px 12px;
+                border:0;
+                border-radius:9px;
+                background:transparent;
+                color:#334155;
+                font-size:14px;
+                text-align:left;
+                cursor:pointer;
+            }
+
+            .rankpilot-account-menu-item:hover {
+                background:#f1f5f9;
+            }
+
+            .rankpilot-account-divider {
+                height:1px;
+                margin:6px 4px;
+                background:#e5e7eb;
+            }
+
+            .rankpilot-account-danger {
+                color:#dc2626;
+            }
+
+            .rankpilot-auth-modal {
+                position:fixed;
+                inset:0;
+                z-index:999999;
+                display:none;
+                align-items:center;
+                justify-content:center;
+                padding:20px;
+            }
+
+            .rankpilot-auth-modal.open {
+                display:flex;
+            }
+
+            .rankpilot-auth-overlay {
+                position:absolute;
+                inset:0;
+                background:rgba(15,23,42,.68);
+                backdrop-filter:blur(6px);
+            }
+
+            .rankpilot-auth-box {
+                position:relative;
+                z-index:2;
+                width:100%;
+                max-width:440px;
+                max-height:calc(100vh - 40px);
+                overflow:auto;
+                box-sizing:border-box;
+                padding:32px;
+                border-radius:20px;
+                background:#fff;
+                box-shadow:
+                    0 30px 80px rgba(15,23,42,.25);
+            }
+
+            .rankpilot-auth-close {
+                position:absolute;
+                top:14px;
+                right:17px;
+                border:0;
+                background:none;
+                color:#64748b;
+                font-size:28px;
+                cursor:pointer;
+            }
+
+            .rankpilot-auth-header {
+                text-align:center;
+                margin-bottom:24px;
+            }
+
+            .rankpilot-auth-logo {
+                width:46px;
+                height:46px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                margin:0 auto 14px;
+                border-radius:12px;
+                background:#111827;
+                color:#fff;
+                font-size:22px;
+                font-weight:800;
+            }
+
+            .rankpilot-auth-header h2 {
+                margin:0 0 8px;
+                color:#0f172a;
+                font-size:26px;
+            }
+
+            .rankpilot-auth-header p {
+                margin:0;
+                color:#64748b;
+                font-size:14px;
+            }
+
+            .rankpilot-auth-field {
+                margin-bottom:16px;
+            }
+
+            .rankpilot-auth-field label {
+                display:block;
+                margin-bottom:6px;
+                color:#334155;
+                font-size:14px;
+                font-weight:600;
+            }
+
+            .rankpilot-auth-field input {
+                width:100%;
+                box-sizing:border-box;
+                padding:12px 14px;
+                border:1px solid #dbe2ea;
+                border-radius:10px;
+                background:#fff;
+                font-size:15px;
+                outline:none;
+            }
+
+            .rankpilot-auth-field input:focus {
+                border-color:#6366f1;
+                box-shadow:
+                    0 0 0 3px rgba(99,102,241,.12);
+            }
+
+            .rankpilot-auth-submit {
+                width:100%;
+                margin-top:4px;
+            }
+
+            .rankpilot-auth-message {
+                min-height:20px;
+                margin-bottom:9px;
+                text-align:center;
+                font-size:13px;
+            }
+
+            .rankpilot-auth-message.error {
+                color:#dc2626;
+            }
+
+            .rankpilot-auth-message.success {
+                color:#16a34a;
+            }
+
+            .rankpilot-auth-switch {
+                margin-top:20px;
+                padding-top:18px;
+                border-top:1px solid #e5e7eb;
+                text-align:center;
+                color:#64748b;
+                font-size:14px;
+            }
+
+            .rankpilot-auth-switch button {
+                border:0;
+                background:transparent;
+                color:#4f46e5;
+                font-weight:600;
+                cursor:pointer;
+            }
+
+            .rankpilot-register-terms {
+                display:flex;
+                gap:8px;
+                align-items:flex-start;
+                margin-bottom:17px;
+                color:#64748b;
+                font-size:13px;
+                line-height:1.5;
+            }
+
+            @media(max-width:600px) {
+
+                #rankpilotAccountMenu {
+                    right:-5px;
+                    width:210px;
+                }
+
+                .rankpilot-auth-box {
+                    padding:25px 20px;
+                }
+
+            }
+
+        `;
+
+
+        document.head.appendChild(
+            style
         );
 
     }
 
 
+    /*
+     * Crear menú
+     */
+
+    const menu =
+        document.createElement("div");
+
+
+    menu.id =
+        "rankpilotAccountMenu";
+
+
+    menu.innerHTML = `
+
+        <button
+            type="button"
+            class="rankpilot-account-menu-item"
+            data-account-action="login"
+        >
+            <span>🔐</span>
+            <span>Iniciar sesión</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="rankpilot-account-menu-item"
+            data-account-action="register"
+        >
+            <span>✨</span>
+            <span>Crear cuenta</span>
+        </button>
+
+
+        <div class="rankpilot-account-divider"></div>
+
+
+        <button
+            type="button"
+            class="rankpilot-account-menu-item"
+            data-account-action="dashboard"
+        >
+            <span>📊</span>
+            <span>Dashboard</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="rankpilot-account-menu-item"
+            data-account-action="projects"
+        >
+            <span>📁</span>
+            <span>Mis proyectos</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="rankpilot-account-menu-item"
+            data-account-action="history"
+        >
+            <span>📈</span>
+            <span>Historial</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="rankpilot-account-menu-item"
+            data-account-action="account"
+        >
+            <span>⚙️</span>
+            <span>Mi cuenta</span>
+        </button>
+
+
+        <div class="rankpilot-account-divider"></div>
+
+
+        <button
+            type="button"
+            class="
+                rankpilot-account-menu-item
+                rankpilot-account-danger
+            "
+            data-account-action="logout"
+        >
+            <span>🚪</span>
+            <span>Cerrar sesión</span>
+        </button>
+
+    `;
+
+
+    wrapper.appendChild(
+        menu
+    );
+
+
     /* =====================================================
-       INSERTAR CREAR CUENTA
+       LOGIN MODAL
     ===================================================== */
 
-    function addRegisterOption() {
+    function createLoginModal() {
 
-        const menu = getAccountMenu();
-
-        if (!menu) {
-            return false;
-        }
-
-        // Ya existe
         if (
             document.getElementById(
-                "rankpilotRegisterMenuItem"
+                "rankpilotLoginModal"
             )
         ) {
-            return true;
+            return;
         }
 
 
-        const registerButton =
-            document.createElement("button");
+        const modal =
+            document.createElement("div");
 
 
-        registerButton.id =
-            "rankpilotRegisterMenuItem";
+        modal.id =
+            "rankpilotLoginModal";
 
 
-        registerButton.type =
-            "button";
+        modal.className =
+            "rankpilot-auth-modal";
 
 
-        registerButton.className =
-            "rankpilot-account-menu-item";
+        modal.innerHTML = `
+
+            <div class="rankpilot-auth-overlay"></div>
 
 
-        registerButton.innerHTML = `
-            <span style="font-size:16px;">✨</span>
-            <span>Crear cuenta</span>
+            <div class="rankpilot-auth-box">
+
+                <button
+                    type="button"
+                    class="rankpilot-auth-close"
+                    id="rankpilotLoginClose"
+                >
+                    ×
+                </button>
+
+
+                <div class="rankpilot-auth-header">
+
+                    <div class="rankpilot-auth-logo">
+                        R
+                    </div>
+
+                    <h2>
+                        Iniciar sesión
+                    </h2>
+
+                    <p>
+                        Accede a tu espacio de RankPilot.
+                    </p>
+
+                </div>
+
+
+                <form id="rankpilotLoginForm">
+
+                    <div class="rankpilot-auth-field">
+
+                        <label>
+                            Email
+                        </label>
+
+                        <input
+                            id="rankpilotLoginEmail"
+                            type="email"
+                            placeholder="tu@email.com"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="rankpilot-auth-field">
+
+                        <label>
+                            Contraseña
+                        </label>
+
+                        <input
+                            id="rankpilotLoginPassword"
+                            type="password"
+                            placeholder="Tu contraseña"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div
+                        id="rankpilotLoginMessage"
+                        class="rankpilot-auth-message"
+                    ></div>
+
+
+                    <button
+                        type="submit"
+                        class="
+                            btn
+                            btn-primary
+                            rankpilot-auth-submit
+                        "
+                    >
+                        Iniciar sesión
+                    </button>
+
+                </form>
+
+
+                <div class="rankpilot-auth-switch">
+
+                    ¿Todavía no tienes una cuenta?
+
+                    <button
+                        type="button"
+                        id="rankpilotGoRegister"
+                    >
+                        Crear cuenta
+                    </button>
+
+                </div>
+
+            </div>
+
         `;
 
 
-        registerButton.style.cssText = `
-            width:100%;
-            display:flex;
-            align-items:center;
-            gap:10px;
-            padding:10px 14px;
-            border:0;
-            background:transparent;
-            color:inherit;
-            font:inherit;
-            text-align:left;
-            cursor:pointer;
-        `;
-
-
-        registerButton.addEventListener(
-            "mouseenter",
-            function () {
-
-                registerButton.style.background =
-                    "rgba(99,102,241,.08)";
-
-            }
+        document.body.appendChild(
+            modal
         );
 
 
-        registerButton.addEventListener(
-            "mouseleave",
-            function () {
+        modal
+            .querySelector(
+                ".rankpilot-auth-overlay"
+            )
+            .addEventListener(
+                "click",
+                closeLogin
+            );
 
-                registerButton.style.background =
-                    "transparent";
 
-            }
-        );
+        document
+            .getElementById(
+                "rankpilotLoginClose"
+            )
+            .addEventListener(
+                "click",
+                closeLogin
+            );
 
 
-        registerButton.addEventListener(
-            "click",
-            function (event) {
+        document
+            .getElementById(
+                "rankpilotGoRegister"
+            )
+            .addEventListener(
+                "click",
+                function() {
 
-                event.preventDefault();
-                event.stopPropagation();
+                    closeLogin();
 
-                if (
-                    menu.classList.contains("open")
-                ) {
-                    menu.classList.remove("open");
+                    openRegister();
+
                 }
+            );
 
-                if (
-                    typeof window.rankPilotOpenRegister ===
-                    "function"
-                ) {
-                    window.rankPilotOpenRegister();
+
+        document
+            .getElementById(
+                "rankpilotLoginForm"
+            )
+            .addEventListener(
+                "submit",
+                function(event) {
+
+                    event.preventDefault();
+
+
+                    const email =
+                        document
+                            .getElementById(
+                                "rankpilotLoginEmail"
+                            )
+                            .value
+                            .trim()
+                            .toLowerCase();
+
+
+                    const password =
+                        document
+                            .getElementById(
+                                "rankpilotLoginPassword"
+                            )
+                            .value;
+
+
+                    const account =
+                        getRankPilotAccount();
+
+
+                    const loginMessage =
+                        document
+                            .getElementById(
+                                "rankpilotLoginMessage"
+                            );
+
+
+                    if (
+                        !account ||
+                        account.email !== email ||
+                        account.password !== password
+                    ) {
+
+                        loginMessage.textContent =
+                            "Email o contraseña incorrectos.";
+
+                        loginMessage.className =
+                            "rankpilot-auth-message error";
+
+                        return;
+
+                    }
+
+
+                    account.loggedIn =
+                        true;
+
+
+                    saveRankPilotAccount(
+                        account
+                    );
+
+
+                    refreshAccountUI();
+
+
+                    loginMessage.textContent =
+                        "✓ Sesión iniciada correctamente.";
+
+                    loginMessage.className =
+                        "rankpilot-auth-message success";
+
+
+                    setTimeout(
+                        closeLogin,
+                        600
+                    );
+
                 }
-
-            }
-        );
-
-
-        /*
-         * Lo ponemos al principio del menú.
-         */
-
-        menu.insertBefore(
-            registerButton,
-            menu.firstChild
-        );
-
-
-        return true;
+            );
 
     }
 
 
     /* =====================================================
-       MODAL
+       REGISTER MODAL
     ===================================================== */
 
     function createRegisterModal() {
@@ -5539,7 +5798,6 @@ document.addEventListener(
                 "rankpilotRegisterModal"
             )
         ) {
-            registerModalCreated = true;
             return;
         }
 
@@ -5552,105 +5810,38 @@ document.addEventListener(
             "rankpilotRegisterModal";
 
 
-        modal.style.cssText = `
-            position:fixed;
-            inset:0;
-            z-index:999999;
-            display:none;
-            align-items:center;
-            justify-content:center;
-            padding:20px;
-        `;
+        modal.className =
+            "rankpilot-auth-modal";
 
 
         modal.innerHTML = `
 
-            <div
-                id="rankpilotRegisterOverlay"
-                style="
-                    position:absolute;
-                    inset:0;
-                    background:rgba(15,23,42,.65);
-                    backdrop-filter:blur(6px);
-                "
-            ></div>
+            <div class="rankpilot-auth-overlay"></div>
 
 
-            <div
-                style="
-                    position:relative;
-                    z-index:2;
-                    width:100%;
-                    max-width:450px;
-                    max-height:calc(100vh - 40px);
-                    overflow:auto;
-                    background:#fff;
-                    border-radius:20px;
-                    padding:32px;
-                    box-shadow:0 25px 70px rgba(0,0,0,.25);
-                    box-sizing:border-box;
-                "
-            >
+            <div class="rankpilot-auth-box">
 
                 <button
                     type="button"
+                    class="rankpilot-auth-close"
                     id="rankpilotRegisterClose"
-                    style="
-                        position:absolute;
-                        top:12px;
-                        right:16px;
-                        border:0;
-                        background:none;
-                        font-size:28px;
-                        color:#64748b;
-                        cursor:pointer;
-                    "
                 >
                     ×
                 </button>
 
 
-                <div style="text-align:center;margin-bottom:25px;">
+                <div class="rankpilot-auth-header">
 
-                    <div
-                        style="
-                            width:46px;
-                            height:46px;
-                            margin:0 auto 14px;
-                            display:flex;
-                            align-items:center;
-                            justify-content:center;
-                            border-radius:12px;
-                            background:#111827;
-                            color:white;
-                            font-size:22px;
-                            font-weight:800;
-                        "
-                    >
+                    <div class="rankpilot-auth-logo">
                         R
                     </div>
 
-
-                    <h2
-                        style="
-                            margin:0 0 8px;
-                            color:#0f172a;
-                            font-size:26px;
-                        "
-                    >
+                    <h2>
                         Crear tu cuenta
                     </h2>
 
-
-                    <p
-                        style="
-                            margin:0;
-                            color:#64748b;
-                            font-size:14px;
-                            line-height:1.5;
-                        "
-                    >
-                        Crea tu cuenta gratuita de RankPilot.
+                    <p>
+                        Empieza gratis con RankPilot.
                     </p>
 
                 </div>
@@ -5658,17 +5849,10 @@ document.addEventListener(
 
                 <form id="rankpilotRegisterForm">
 
-                    <div style="margin-bottom:16px;">
 
-                        <label
-                            style="
-                                display:block;
-                                margin-bottom:6px;
-                                font-size:14px;
-                                font-weight:600;
-                                color:#334155;
-                            "
-                        >
+                    <div class="rankpilot-auth-field">
+
+                        <label>
                             Nombre
                         </label>
 
@@ -5676,31 +5860,16 @@ document.addEventListener(
                             id="rankpilotRegisterName"
                             type="text"
                             placeholder="Álvaro"
+                            autocomplete="name"
                             required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                                padding:12px 14px;
-                                border:1px solid #dbe2ea;
-                                border-radius:10px;
-                                font-size:15px;
-                            "
                         >
 
                     </div>
 
 
-                    <div style="margin-bottom:16px;">
+                    <div class="rankpilot-auth-field">
 
-                        <label
-                            style="
-                                display:block;
-                                margin-bottom:6px;
-                                font-size:14px;
-                                font-weight:600;
-                                color:#334155;
-                            "
-                        >
+                        <label>
                             Email
                         </label>
 
@@ -5708,31 +5877,16 @@ document.addEventListener(
                             id="rankpilotRegisterEmail"
                             type="email"
                             placeholder="tu@email.com"
+                            autocomplete="email"
                             required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                                padding:12px 14px;
-                                border:1px solid #dbe2ea;
-                                border-radius:10px;
-                                font-size:15px;
-                            "
                         >
 
                     </div>
 
 
-                    <div style="margin-bottom:16px;">
+                    <div class="rankpilot-auth-field">
 
-                        <label
-                            style="
-                                display:block;
-                                margin-bottom:6px;
-                                font-size:14px;
-                                font-weight:600;
-                                color:#334155;
-                            "
-                        >
+                        <label>
                             Contraseña
                         </label>
 
@@ -5741,31 +5895,16 @@ document.addEventListener(
                             type="password"
                             placeholder="Mínimo 8 caracteres"
                             minlength="8"
+                            autocomplete="new-password"
                             required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                                padding:12px 14px;
-                                border:1px solid #dbe2ea;
-                                border-radius:10px;
-                                font-size:15px;
-                            "
                         >
 
                     </div>
 
 
-                    <div style="margin-bottom:16px;">
+                    <div class="rankpilot-auth-field">
 
-                        <label
-                            style="
-                                display:block;
-                                margin-bottom:6px;
-                                font-size:14px;
-                                font-weight:600;
-                                color:#334155;
-                            "
-                        >
+                        <label>
                             Repetir contraseña
                         </label>
 
@@ -5774,30 +5913,15 @@ document.addEventListener(
                             type="password"
                             placeholder="Repite tu contraseña"
                             minlength="8"
+                            autocomplete="new-password"
                             required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                                padding:12px 14px;
-                                border:1px solid #dbe2ea;
-                                border-radius:10px;
-                                font-size:15px;
-                            "
                         >
 
                     </div>
 
 
                     <label
-                        style="
-                            display:flex;
-                            gap:8px;
-                            align-items:flex-start;
-                            margin-bottom:16px;
-                            color:#64748b;
-                            font-size:13px;
-                            line-height:1.5;
-                        "
+                        class="rankpilot-register-terms"
                     >
 
                         <input
@@ -5816,27 +5940,16 @@ document.addEventListener(
 
                     <div
                         id="rankpilotRegisterMessage"
-                        style="
-                            min-height:20px;
-                            margin-bottom:10px;
-                            text-align:center;
-                            font-size:13px;
-                        "
+                        class="rankpilot-auth-message"
                     ></div>
 
 
                     <button
                         type="submit"
-                        style="
-                            width:100%;
-                            padding:13px;
-                            border:0;
-                            border-radius:10px;
-                            background:#4f46e5;
-                            color:white;
-                            font-size:15px;
-                            font-weight:600;
-                            cursor:pointer;
+                        class="
+                            btn
+                            btn-primary
+                            rankpilot-auth-submit
                         "
                     >
                         Crear cuenta
@@ -5845,29 +5958,13 @@ document.addEventListener(
                 </form>
 
 
-                <div
-                    style="
-                        margin-top:20px;
-                        padding-top:18px;
-                        border-top:1px solid #e5e7eb;
-                        text-align:center;
-                        color:#64748b;
-                        font-size:14px;
-                    "
-                >
+                <div class="rankpilot-auth-switch">
 
                     ¿Ya tienes una cuenta?
 
                     <button
                         type="button"
-                        id="rankpilotRegisterLogin"
-                        style="
-                            border:0;
-                            background:none;
-                            color:#4f46e5;
-                            font-weight:600;
-                            cursor:pointer;
-                        "
+                        id="rankpilotGoLogin"
                     >
                         Iniciar sesión
                     </button>
@@ -5875,17 +5972,24 @@ document.addEventListener(
                 </div>
 
             </div>
+
         `;
 
 
-        document.body.appendChild(modal);
+        document.body.appendChild(
+            modal
+        );
 
-        registerModalCreated = true;
 
+        modal
+            .querySelector(
+                ".rankpilot-auth-overlay"
+            )
+            .addEventListener(
+                "click",
+                closeRegister
+            );
 
-        /* =================================================
-           CERRAR
-           ================================================= */
 
         document
             .getElementById(
@@ -5899,17 +6003,19 @@ document.addEventListener(
 
         document
             .getElementById(
-                "rankpilotRegisterOverlay"
+                "rankpilotGoLogin"
             )
             .addEventListener(
                 "click",
-                closeRegister
+                function() {
+
+                    closeRegister();
+
+                    openLogin();
+
+                }
             );
 
-
-        /* =================================================
-           REGISTRO
-           ================================================= */
 
         document
             .getElementById(
@@ -5917,50 +6023,197 @@ document.addEventListener(
             )
             .addEventListener(
                 "submit",
-                registerUser
-            );
+                function(event) {
+
+                    event.preventDefault();
 
 
-        /* =================================================
-           IR A LOGIN
-           ================================================= */
+                    const name =
+                        document
+                            .getElementById(
+                                "rankpilotRegisterName"
+                            )
+                            .value
+                            .trim();
 
-        document
-            .getElementById(
-                "rankpilotRegisterLogin"
-            )
-            .addEventListener(
-                "click",
-                function () {
 
-                    closeRegister();
+                    const email =
+                        document
+                            .getElementById(
+                                "rankpilotRegisterEmail"
+                            )
+                            .value
+                            .trim()
+                            .toLowerCase();
 
-                    const loginModal =
-                        document.getElementById(
-                            "rankpilotLoginModal"
-                        );
 
-                    if (loginModal) {
+                    const password =
+                        document
+                            .getElementById(
+                                "rankpilotRegisterPassword"
+                            )
+                            .value;
 
-                        loginModal.style.display =
-                            "flex";
 
-                        loginModal.classList.add(
-                            "open"
+                    const password2 =
+                        document
+                            .getElementById(
+                                "rankpilotRegisterPassword2"
+                            )
+                            .value;
+
+
+                    const terms =
+                        document
+                            .getElementById(
+                                "rankpilotRegisterTerms"
+                            )
+                            .checked;
+
+
+                    const registerMessage =
+                        document
+                            .getElementById(
+                                "rankpilotRegisterMessage"
+                            );
+
+
+                    function showError(text) {
+
+                        registerMessage.textContent =
+                            text;
+
+                        registerMessage.className =
+                            "rankpilot-auth-message error";
+
+                    }
+
+
+                    if (!name) {
+
+                        showError(
+                            "Introduce tu nombre."
                         );
 
                         return;
+
                     }
 
 
-                    const loginBtn =
-                        document.getElementById(
-                            "loginBtn"
+                    if (!email) {
+
+                        showError(
+                            "Introduce un email válido."
                         );
 
-                    if (loginBtn) {
-                        loginBtn.click();
+                        return;
+
                     }
+
+
+                    if (
+                        password.length < 8
+                    ) {
+
+                        showError(
+                            "La contraseña debe tener al menos 8 caracteres."
+                        );
+
+                        return;
+
+                    }
+
+
+                    if (
+                        password !== password2
+                    ) {
+
+                        showError(
+                            "Las contraseñas no coinciden."
+                        );
+
+                        return;
+
+                    }
+
+
+                    if (!terms) {
+
+                        showError(
+                            "Debes aceptar los términos y condiciones."
+                        );
+
+                        return;
+
+                    }
+
+
+                    const existing =
+                        getRankPilotAccount();
+
+
+                    if (
+                        existing &&
+                        existing.email === email
+                    ) {
+
+                        showError(
+                            "Ya existe una cuenta con este email."
+                        );
+
+                        return;
+
+                    }
+
+
+                    const account = {
+
+                        name:
+                            name,
+
+                        email:
+                            email,
+
+                        /*
+                         * DEMO LOCAL.
+                         * Se sustituirá por autenticación
+                         * real cuando conectemos backend.
+                         */
+
+                        password:
+                            password,
+
+                        plan:
+                            "starter",
+
+                        loggedIn:
+                            true,
+
+                        createdAt:
+                            new Date().toISOString()
+
+                    };
+
+
+                    saveRankPilotAccount(
+                        account
+                    );
+
+
+                    refreshAccountUI();
+
+
+                    registerMessage.textContent =
+                        "✓ Cuenta creada correctamente.";
+
+                    registerMessage.className =
+                        "rankpilot-auth-message success";
+
+
+                    setTimeout(
+                        closeRegister,
+                        700
+                    );
 
                 }
             );
@@ -5969,19 +6222,50 @@ document.addEventListener(
 
 
     /* =====================================================
-       ABRIR
-       ===================================================== */
+       OPEN / CLOSE
+    ===================================================== */
 
-    function openRegister() {
+    function openLogin() {
 
-        if (!registerModalCreated) {
-            createRegisterModal();
-        }
+        createLoginModal();
 
 
         const modal =
             document.getElementById(
-                "rankpilotRegisterModal"
+                "rankpilotLoginModal"
+            );
+
+
+        modal.classList.add(
+            "open"
+        );
+
+
+        document.body.style.overflow =
+            "hidden";
+
+
+        setTimeout(
+            function() {
+
+                document
+                    .getElementById(
+                        "rankpilotLoginEmail"
+                    )
+                    ?.focus();
+
+            },
+            100
+        );
+
+    }
+
+
+    function closeLogin() {
+
+        const modal =
+            document.getElementById(
+                "rankpilotLoginModal"
             );
 
 
@@ -5990,31 +6274,52 @@ document.addEventListener(
         }
 
 
-        modal.style.display = "flex";
+        modal.classList.remove(
+            "open"
+        );
 
 
-        document.body.style.overflow = "hidden";
-
-
-        setTimeout(function () {
-
-            const input =
-                document.getElementById(
-                    "rankpilotRegisterName"
-                );
-
-            if (input) {
-                input.focus();
-            }
-
-        }, 100);
+        document.body.style.overflow =
+            "";
 
     }
 
 
-    /* =====================================================
-       CERRAR
-       ===================================================== */
+    function openRegister() {
+
+        createRegisterModal();
+
+
+        const modal =
+            document.getElementById(
+                "rankpilotRegisterModal"
+            );
+
+
+        modal.classList.add(
+            "open"
+        );
+
+
+        document.body.style.overflow =
+            "hidden";
+
+
+        setTimeout(
+            function() {
+
+                document
+                    .getElementById(
+                        "rankpilotRegisterName"
+                    )
+                    ?.focus();
+
+            },
+            100
+        );
+
+    }
+
 
     function closeRegister() {
 
@@ -6029,269 +6334,438 @@ document.addEventListener(
         }
 
 
-        modal.style.display = "none";
+        modal.classList.remove(
+            "open"
+        );
 
 
-        document.body.style.overflow = "";
+        document.body.style.overflow =
+            "";
 
     }
 
 
     /* =====================================================
-       CREAR USUARIO
-       ===================================================== */
+       REFRESH HEADER
+    ===================================================== */
 
-    function registerUser(event) {
+    function refreshAccountUI() {
 
-        event.preventDefault();
+        const account =
+            getRankPilotAccount();
 
-
-        const name =
-            document
-                .getElementById(
-                    "rankpilotRegisterName"
-                )
-                .value
-                .trim();
-
-
-        const email =
-            document
-                .getElementById(
-                    "rankpilotRegisterEmail"
-                )
-                .value
-                .trim()
-                .toLowerCase();
-
-
-        const password =
-            document.getElementById(
-                "rankpilotRegisterPassword"
-            ).value;
-
-
-        const password2 =
-            document.getElementById(
-                "rankpilotRegisterPassword2"
-            ).value;
-
-
-        const terms =
-            document.getElementById(
-                "rankpilotRegisterTerms"
-            ).checked;
-
-
-        const message =
-            document.getElementById(
-                "rankpilotRegisterMessage"
-            );
-
-
-        function error(text) {
-
-            message.textContent = text;
-            message.style.color = "#dc2626";
-
-        }
-
-
-        if (!name) {
-            error("Introduce tu nombre.");
-            return;
-        }
-
-
-        if (!email) {
-            error("Introduce un email.");
-            return;
-        }
-
-
-        if (password.length < 8) {
-
-            error(
-                "La contraseña debe tener al menos 8 caracteres."
-            );
-
-            return;
-
-        }
-
-
-        if (password !== password2) {
-
-            error(
-                "Las contraseñas no coinciden."
-            );
-
-            return;
-
-        }
-
-
-        if (!terms) {
-
-            error(
-                "Debes aceptar los términos y condiciones."
-            );
-
-            return;
-
-        }
-
-
-        /*
-         * CUENTA DEMO
-         *
-         * Más adelante sustituiremos esto por
-         * autenticación real + base de datos.
-         */
-
-        const account = {
-
-            name: name,
-
-            email: email,
-
-            password: password,
-
-            plan: "starter",
-
-            loggedIn: true,
-
-            createdAt:
-                new Date().toISOString()
-
-        };
-
-
-        localStorage.setItem(
-            "rankpilot_account_v1",
-            JSON.stringify(account)
-        );
-
-
-        message.textContent =
-            "✓ Cuenta creada correctamente.";
-
-        message.style.color =
-            "#16a34a";
-
-
-        /*
-         * Actualizar cabecera
-         */
 
         if (
-            typeof window.rankPilotRefreshAccountUI ===
-            "function"
+            account &&
+            account.loggedIn
         ) {
 
-            window.rankPilotRefreshAccountUI();
+            const firstName =
+                (
+                    account.name ||
+                    "Cuenta"
+                )
+                    .split(" ")[0];
+
+
+            loginBtn.innerHTML =
+                escapeHtml(
+                    firstName
+                ) +
+                " ▾";
 
         } else {
 
-            const loginBtn =
-                document.getElementById(
-                    "loginBtn"
+            loginBtn.innerHTML =
+                "Iniciar sesión";
+
+        }
+
+    }
+
+
+    window.rankPilotRefreshAccountUI =
+        refreshAccountUI;
+
+
+    /* =====================================================
+       LOGIN BUTTON
+    ===================================================== */
+
+    loginBtn.addEventListener(
+        "click",
+        function(event) {
+
+            event.preventDefault();
+
+
+            const account =
+                getRankPilotAccount();
+
+
+            if (
+                account &&
+                account.loggedIn
+            ) {
+
+                menu.classList.toggle(
+                    "open"
                 );
 
-            if (loginBtn) {
+            } else {
 
-                loginBtn.textContent =
-                    name.split(" ")[0] + " ▾";
+                openLogin();
 
             }
 
         }
+    );
 
 
-        setTimeout(
-            function () {
+    /* =====================================================
+       MENU ACTIONS
+    ===================================================== */
+
+    menu
+        .querySelectorAll(
+            "[data-account-action]"
+        )
+        .forEach(function(button) {
+
+            button.addEventListener(
+                "click",
+                function() {
+
+                    const action =
+                        button.dataset.accountAction;
+
+
+                    menu.classList.remove(
+                        "open"
+                    );
+
+
+                    switch (action) {
+
+                        case "login":
+
+                            openLogin();
+
+                            break;
+
+
+                        case "register":
+
+                            openRegister();
+
+                            break;
+
+
+                        case "dashboard":
+
+                            openRankPilotDashboard(
+                                "dashboard"
+                            );
+
+                            break;
+
+
+                        case "projects":
+
+                            openRankPilotDashboard(
+                                "projects"
+                            );
+
+                            break;
+
+
+                        case "history":
+
+                            openRankPilotDashboard(
+                                "history"
+                            );
+
+                            break;
+
+
+                        case "account":
+
+                            openRankPilotDashboard(
+                                "account"
+                            );
+
+                            break;
+
+
+                        case "logout":
+
+                            {
+
+                                const account =
+                                    getRankPilotAccount();
+
+
+                                if (account) {
+
+                                    account.loggedIn =
+                                        false;
+
+
+                                    saveRankPilotAccount(
+                                        account
+                                    );
+
+                                }
+
+
+                                refreshAccountUI();
+
+                            }
+
+                            break;
+
+                    }
+
+                }
+            );
+
+        });
+
+
+    /* =====================================================
+       CLICK FUERA
+    ===================================================== */
+
+    document.addEventListener(
+        "click",
+        function(event) {
+
+            if (
+                !wrapper.contains(
+                    event.target
+                )
+            ) {
+
+                menu.classList.remove(
+                    "open"
+                );
+
+            }
+
+        }
+    );
+
+
+    /* =====================================================
+       ESC
+    ===================================================== */
+
+    document.addEventListener(
+        "keydown",
+        function(event) {
+
+            if (
+                event.key === "Escape"
+            ) {
+
+                menu.classList.remove(
+                    "open"
+                );
+
+                closeLogin();
 
                 closeRegister();
 
-                document
-                    .getElementById(
-                        "rankpilotRegisterForm"
-                    )
-                    .reset();
+            }
 
-                message.textContent = "";
+        }
+    );
 
-            },
-            700
-        );
 
+    /* =====================================================
+       INICIAL
+    ===================================================== */
+
+    refreshAccountUI();
+
+}
+
+
+/* =========================================================
+   DASHBOARD FLOATING BUTTON
+   SOLO DASHBOARD — NO LOGIN
+========================================================= */
+
+function createDashboardButton() {
+
+    if (
+        document.getElementById(
+            "rankpilotDashboardButton"
+        )
+    ) {
+        return;
     }
 
 
-    /* =====================================================
-       EXPONER FUNCIÓN
-       ===================================================== */
-
-    window.rankPilotOpenRegister =
-        openRegister;
+    const button =
+        document.createElement("button");
 
 
-    /* =====================================================
-       CREAR MODAL CUANDO CARGA
-       ===================================================== */
-
-    function initialize() {
-
-        createRegisterModal();
-
-        addRegisterOption();
+    button.id =
+        "rankpilotDashboardButton";
 
 
-        /*
-         * El menú de cuenta puede ser creado por otro
-         * bloque de app.js después de este código.
-         *
-         * Por eso lo vigilamos.
-         */
-
-        const observer =
-            new MutationObserver(
-                function () {
-
-                    addRegisterOption();
-
-                }
-            );
+    button.type =
+        "button";
 
 
-        if (document.body) {
+    button.textContent =
+        "Dashboard";
 
-            observer.observe(
-                document.body,
-                {
-                    childList: true,
-                    subtree: true
-                }
+
+    button.addEventListener(
+        "click",
+        function() {
+
+            openRankPilotDashboard(
+                "dashboard"
             );
 
         }
+    );
+
+
+    button.style.cssText = `
+
+        position:fixed;
+        right:24px;
+        bottom:24px;
+        z-index:9990;
+
+        padding:12px 17px;
+
+        border:0;
+        border-radius:12px;
+
+        background:#111827;
+        color:#fff;
+
+        font-size:14px;
+        font-weight:600;
+
+        cursor:pointer;
+
+        box-shadow:
+            0 10px 30px rgba(15,23,42,.20);
+
+    `;
+
+
+    document.body.appendChild(
+        button
+    );
+
+}
+
+
+/* =========================================================
+   INIT
+========================================================= */
+
+function rankPilotInitialize() {
+
+    /*
+     * Crear dashboard.
+     */
+
+    createDashboardButton();
+
+
+    /*
+     * Cuenta.
+     */
+
+    initializeHeaderAccount();
+
+}
+
+
+if (
+    document.readyState === "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        rankPilotInitialize
+    );
+
+} else {
+
+    rankPilotInitialize();
+
+}
+
+
+/* =========================================================
+   CLEANUP LEGACY FLOATING LOGIN
+   ========================================================= */
+
+(function cleanupLegacyLogin() {
+
+    function cleanup() {
+
+        const legacyIds = [
+            "rankpilotAccountButton",
+            "rankpilotFloatingLogin",
+            "rankpilotLoginFloating"
+        ];
+
+
+        legacyIds.forEach(
+            function(id) {
+
+                const element =
+                    document.getElementById(
+                        id
+                    );
+
+
+                if (element) {
+                    element.remove();
+                }
+
+            }
+        );
+
+
+        document
+            .querySelectorAll(
+                ".rankpilot-floating-login, " +
+                ".rankpilot-login-floating"
+            )
+            .forEach(
+                function(element) {
+
+                    element.remove();
+
+                }
+            );
 
     }
 
 
     if (
-        document.readyState ===
-        "loading"
+        document.readyState === "loading"
     ) {
 
         document.addEventListener(
             "DOMContentLoaded",
-            initialize
+            cleanup
         );
 
     } else {
 
-        initialize();
+        cleanup();
 
     }
 
