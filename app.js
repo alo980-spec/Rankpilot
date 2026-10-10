@@ -11988,13 +11988,13 @@ if (
   // IMPORTANTE:
   // Pega entre las comillas tu publishable key actual.
   const SUPABASE_PUBLISHABLE_KEY =
-    "PEGA_AQUI_TU_PUBLISHABLE_KEY";
+    "sb_publishable_HjMMdbvbAQ5C4f4_B7nf2A_0tP3Z_El";
 
   // 3. Comprobar que la clave está configurada
   if (
     !SUPABASE_PUBLISHABLE_KEY ||
     SUPABASE_PUBLISHABLE_KEY ===
-      "PEGA_AQUI_TU_PUBLISHABLE_KEY"
+      "sb_publishable_HjMMdbvbAQ5C4f4_B7nf2A_0tP3Z_El"
   ) {
     console.error(
       "RankPilot: falta configurar la publishable key."
