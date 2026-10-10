@@ -11993,8 +11993,8 @@ if (
 
   try {
     window.rankPilotSupabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_PUBLISHABLE_KEY
+https://pcslutmzjyyybmdssrog.supabase.co/rest/v1/,
+ sb_publishable_HjMMdbvbAQ5C4f4_B7nf2A_0tP3Z_El
     );
 
     console.log("RankPilot: cliente Supabase inicializado.");
