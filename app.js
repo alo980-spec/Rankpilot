@@ -11822,3 +11822,144 @@ if (
 
   syncRankPilotPlansFromBackend();
 }
+
+
+/* =========================================================
+   RANKPILOT — SINCRONIZAR TARJETAS CON EL WORKER
+   Añadir al final de app.js
+   ========================================================= */
+
+(function rankPilotPlanCardsSync() {
+  "use strict";
+
+  const API_URL =
+    "https://rankpilot-api.alvaroalvarezmonteagudo.workers.dev/plan";
+
+  const CACHE_KEY =
+    "rankpilot_backend_plans_v1";
+
+  function getPlans() {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function savePlans(plans) {
+    try {
+      localStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify(plans)
+      );
+    } catch (error) {
+      console.warn(
+        "RankPilot: no se pudo guardar la caché de planes.",
+        error
+      );
+    }
+  }
+
+  function formatLimit(value) {
+    if (value === null || value === undefined) {
+      return "Ilimitado";
+    }
+
+    return String(value);
+  }
+
+  function updateCards(plans) {
+    if (!plans) return;
+
+    document
+      .querySelectorAll("[data-rankpilot-plan]")
+      .forEach(card => {
+        const id = card.getAttribute("data-rankpilot-plan");
+        const plan = plans[id];
+
+        if (!plan) return;
+
+        const price = card.querySelector(
+          "[data-rankpilot-price]"
+        );
+
+        const projects = card.querySelector(
+          "[data-rankpilot-projects]"
+        );
+
+        const analyses = card.querySelector(
+          "[data-rankpilot-analyses]"
+        );
+
+        const name = card.querySelector(
+          "[data-rankpilot-plan-name]"
+        );
+
+        if (price) {
+          price.textContent = `${plan.price}€`;
+        }
+
+        if (projects && plan.limits) {
+          projects.textContent = formatLimit(
+            plan.limits.projects
+          );
+        }
+
+        if (analyses && plan.limits) {
+          analyses.textContent = formatLimit(
+            plan.limits.analysesPerMonth
+          );
+        }
+
+        if (name && plan.name) {
+          name.textContent = plan.name;
+        }
+      });
+  }
+
+  async function sync() {
+    // Mostrar los datos guardados mientras se consulta el Worker.
+    updateCards(getPlans());
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "GET",
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data || !data.success || !data.plans) {
+        throw new Error("Respuesta de planes no válida.");
+      }
+
+      savePlans(data.plans);
+      updateCards(data.plans);
+
+      console.log(
+        "RankPilot: planes sincronizados con el Worker."
+      );
+    } catch (error) {
+      console.warn(
+        "RankPilot: se mantienen los planes disponibles localmente.",
+        error
+      );
+    }
+  }
+
+  // Permitir actualizar las tarjetas después de abrir Mi cuenta.
+  window.rankPilotRefreshPlanCards = function () {
+    updateCards(getPlans());
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", sync);
+  } else {
+    sync();
+  }
+})();
