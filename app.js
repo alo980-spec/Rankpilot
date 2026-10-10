@@ -11393,11 +11393,38 @@ function getRankPilotCurrentPlan() {
   return "starter";
 }
 
-// ---------------------------------------------------------
+
+ // ---------------------------------------------------------
 // OBTENER CONFIGURACIÓN DEL PLAN
 // ---------------------------------------------------------
 
-function getRankPilotBackendPlan
+function getRankPilotBackendPlan(planName) {
+  const selectedPlan =
+    planName || getRankPilotCurrentPlan();
+
+  let plans = rankPilotBackendPlans;
+
+  if (!plans) {
+    try {
+      plans = JSON.parse(
+        localStorage.getItem(
+          "rankpilot_backend_plans_v1"
+        ) || "null"
+      );
+    } catch (error) {
+      console.warn(
+        "RankPilot: no se pudieron leer los planes guardados.",
+        error
+      );
+    }
+  }
+
+  if (!plans || typeof plans !== "object") {
+    return null;
+  }
+
+  return plans[selectedPlan] || null;
+}
 
    // =========================================================
 // RANKPILOT — PLANES DESDE BACKEND
