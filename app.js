@@ -11963,3 +11963,45 @@ if (
     sync();
   }
 })();
+
+
+/* =========================================
+   RANKPILOT - CONEXION CON SUPABASE
+   ========================================= */
+
+(function initRankPilotSupabase() {
+  if (!window.supabase || !window.supabase.createClient) {
+    console.error(
+      "RankPilot: no se ha cargado la librería de Supabase."
+    );
+    return;
+  }
+
+  // Sustituye estos dos valores por los de tu proyecto.
+  const SUPABASE_URL = "https://pcslutmzjyyybmdssrog.supabase.co/rest/v1/";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_HjMMdbvbAQ5C4f4_B7nf2A_0tP3Z_El";
+
+  if (
+    SUPABASE_URL === "https://pcslutmzjyyybmdssrog.supabase.co/rest/v1/" ||
+    SUPABASE_PUBLISHABLE_KEY === "sb_publishable_HjMMdbvbAQ5C4f4_B7nf2A_0tP3Z_El"
+  ) {
+    console.warn(
+      "RankPilot: falta configurar la URL o la publishable key."
+    );
+    return;
+  }
+
+  try {
+    window.rankPilotSupabase = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_PUBLISHABLE_KEY
+    );
+
+    console.log("RankPilot: cliente Supabase inicializado.");
+  } catch (error) {
+    console.error(
+      "RankPilot: error al inicializar Supabase.",
+      error
+    );
+  }
+})();
