@@ -11436,7 +11436,7 @@ function getRankPilotBackendPlan(planName) {
 const RANKPILOT_BACKEND_PLAN_API =
   "https://rankpilot-api.alvaroalvarezmonteagudo.workers.dev/plan";
 
-let rankPilotBackendPlans = null;
+// La variable rankPilotBackendPlans se declara más arriba; aquí no se vuelve a declarar.
 
 
 // ---------------------------------------------------------
