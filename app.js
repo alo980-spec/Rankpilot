@@ -11428,6 +11428,7 @@ function getRankPilotBackendPlan(planName) {
 
 
 
+
  // =========================================================
 // RANKPILOT — PLANES DESDE BACKEND
 // =========================================================
@@ -11469,7 +11470,6 @@ function getRankPilotBackendPlan(planName) {
 
   return plans[selectedPlan] || null;
 }
-
 
 // ---------------------------------------------------------
 // CARGAR PLANES DESDE EL WORKER
